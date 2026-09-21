@@ -1,0 +1,24 @@
+services:
+  todo:
+    build: .
+    image: gharawi-todo:local
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - ./data:/data
+    networks:
+      proxy:
+        aliases: [gharawi-todo]
+    mem_limit: 96m
+    cpus: 0.5
+    pids_limit: 64
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    logging:
+      driver: json-file
+      options: {max-size: "5m", max-file: "2"}
+networks:
+  proxy:
+    external: true
+    name: ${TODO_PROXY_NETWORK:?Set the existing proxy network name}

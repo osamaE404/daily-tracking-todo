@@ -1,0 +1,378 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="An open-source, offline-first task system for plans that survive real life.">
+    <meta name="theme-color" content="#07111f">
+    <title>todo.gharawi.sa</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="apple-touch-icon" href="/icons/icon-192.png">
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+
+    <header class="site-header">
+      <a class="wordmark" href="/" aria-label="todo.gharawi.sa home">
+        <span class="wordmark-mark" aria-hidden="true"></span>
+        <span>todo<em>.gharawi.sa</em></span>
+      </a>
+      <nav aria-label="Primary navigation">
+        <a href="#story">The reason</a>
+        <a href="#product">The product</a>
+        <a href="#source">Source</a>
+      </nav>
+    </header>
+
+    <main id="main">
+      <div class="night">
+        <section class="hero" aria-labelledby="hero-title">
+          <svg class="signal-map" viewBox="0 0 1440 780" preserveAspectRatio="none" aria-hidden="true">
+            <path d="M0 610C210 420 355 665 570 480S952 170 1440 350"/>
+            <path d="M0 120c180 150 162 250 340 330s296-5 426 118 344 104 674 16"/>
+            <path d="M980 0c-112 155-53 282 92 348s258 182 228 432"/>
+            <path d="M0 345c264-112 422-54 604 78s390 224 836 58"/>
+            <circle cx="0" cy="610" r="5"/>
+            <circle cx="246" cy="502" r="5"/>
+            <circle cx="570" cy="480" r="5"/>
+            <circle cx="766" cy="568" r="5"/>
+            <circle cx="1072" cy="348" r="5"/>
+            <circle cx="1300" cy="584" r="5"/>
+            <circle cx="1440" cy="350" r="5"/>
+          </svg>
+
+          <div class="hero-copy">
+            <p class="eyebrow">Local first · Open source · Built in public</p>
+            <h1 id="hero-title">Plans break. The system should help you <span>return.</span></h1>
+            <p class="hero-intro">
+              After almost three years of showing up, a difficult period left me with a backlog that no red date
+              could explain. I came back needing more than another overdue list.
+            </p>
+            <p class="hero-intro hero-intro-quiet">
+              I am building the task app I wanted: deep enough for serious work, calm enough for daily life,
+              available offline, and small enough to run on my own server.
+            </p>
+            <div class="hero-actions">
+              <button class="button button-install" type="button" data-install>↓ Install your daily space</button>
+              <a class="button button-quiet" href="/app/">Open my tasks</a>
+              <a class="button button-primary" href="#story">Why this exists</a>
+              <a class="button button-quiet" href="#source">Follow the build <span aria-hidden="true">↗</span></a>
+            </div>
+          </div>
+
+          <div class="hero-visual">
+            <div class="signal-chip signal-chip-context" aria-hidden="true">
+              <span class="signal-icon pause-icon"></span>
+              <span><small>Context</small>Interrupted, not abandoned</span>
+            </div>
+
+            <div class="signal-chip signal-chip-week" aria-hidden="true">
+              <span class="signal-icon week-icon">7</span>
+              <span><small>Weekly view</small>Choose before you schedule</span>
+            </div>
+
+            <div class="planner-window" data-planner-demo aria-label="Interactive preview of the task application">
+              <div class="window-topbar" aria-hidden="true">
+                <div class="window-dots"><i></i><i></i><i></i></div>
+                <span>Interactive demo · Monday, 21 September</span>
+                <b>Local</b>
+              </div>
+              <div class="window-body">
+                <aside class="window-nav" aria-label="Preview views">
+                  <div class="window-logo" aria-hidden="true"></div>
+                  <button class="window-nav-item active" type="button" data-planner-view="today" aria-pressed="true"><i class="color-dot blue"></i>Today <b>4</b></button>
+                  <button class="window-nav-item" type="button" data-planner-view="week" aria-pressed="false"><i class="color-dot amber"></i>Week <b>18</b></button>
+                  <button class="window-nav-item" type="button" data-planner-view="projects" aria-pressed="false"><i class="color-dot violet"></i>Projects</button>
+                  <button class="window-nav-item" type="button" data-planner-view="habits" aria-pressed="false"><i class="color-dot green"></i>Habits</button>
+                  <span class="window-nav-spacer"></span>
+                  <button class="window-nav-item" type="button" data-planner-view="focus" aria-pressed="false"><i class="color-dot red"></i>Focus</button>
+                </aside>
+
+                <div class="window-tasks">
+                  <div class="task-heading">
+                    <div>
+                      <small data-planner-kicker>Today</small>
+                      <h2 data-planner-title>Back in motion</h2>
+                    </div>
+                    <span data-planner-count>2 of 6</span>
+                  </div>
+
+                  <button class="task priority-red" type="button" data-planner-task aria-pressed="false">
+                    <span class="tree-branch" aria-hidden="true"></span>
+                    <span class="checkbox"></span>
+                    <span class="task-text"><b>Prepare client delivery</b><small>Today at 16:00</small></span>
+                    <span class="task-progress">3 / 12</span>
+                  </button>
+                  <button class="task child complete" type="button" data-planner-task aria-pressed="true">
+                    <span class="tree-branch" aria-hidden="true"></span>
+                    <span class="checkbox">✓</span>
+                    <span class="task-text"><b>Confirm requirements</b><small>Completed</small></span>
+                    <span class="task-progress"></span>
+                  </button>
+                  <button class="task child priority-amber" type="button" data-planner-task aria-pressed="false">
+                    <span class="tree-branch" aria-hidden="true"></span>
+                    <span class="checkbox"></span>
+                    <span class="task-text"><b>Review implementation</b><small>Today at 13:30</small></span>
+                    <span class="task-progress"></span>
+                  </button>
+                  <button class="task child" type="button" data-planner-task aria-pressed="false">
+                    <span class="tree-branch" aria-hidden="true"></span>
+                    <span class="checkbox"></span>
+                    <span class="task-text"><b>Package the handoff</b><small>Tomorrow</small></span>
+                    <span class="task-progress"></span>
+                  </button>
+                  <button class="task" type="button" data-planner-task aria-pressed="false">
+                    <span class="tree-branch" aria-hidden="true"></span>
+                    <span class="checkbox"></span>
+                    <span class="task-text"><b>Evening walk</b><small>30 minute habit</small></span>
+                    <span class="task-progress">8 days</span>
+                  </button>
+
+                  <button class="focus-bar" type="button" data-focus-timer aria-pressed="false">
+                    <span><i></i><span data-focus-label>Start focus on Review implementation</span></span>
+                    <b data-focus-time>25:00</b>
+                  </button>
+                </div>
+
+                <aside class="window-detail">
+                  <span class="detail-label">Deadline</span>
+                  <strong>Today, 16:00</strong>
+                  <span class="detail-label">Progress</span>
+                  <strong>25% complete</strong>
+                  <div class="progress-track"><i></i></div>
+                  <span class="detail-label">Reminder</span>
+                  <strong>30 minutes before</strong>
+                  <span class="detail-label">Project</span>
+                  <strong><i class="color-dot violet"></i>Client work</strong>
+                </aside>
+              </div>
+            </div>
+
+            <div class="signal-chip signal-chip-offline" aria-hidden="true">
+              <span class="signal-icon check-icon">✓</span>
+              <span><small>Saved here first</small>Ready without a connection</span>
+            </div>
+
+            <div class="signal-chip signal-chip-focus" aria-hidden="true">
+              <span class="signal-icon focus-icon"></span>
+              <span><small>Focus</small>25 minutes reserved</span>
+            </div>
+          </div>
+        </section>
+
+        <dl class="promise-strip" aria-label="Product principles">
+          <div><dt>Local first</dt><dd>The phone remains useful offline.</dd></div>
+          <div><dt>Deep work</dt><dd>Hundreds of nested steps stay navigable.</dd></div>
+          <div><dt>Small server</dt><dd>One service, one database, no idle polling.</dd></div>
+          <div><dt>Yours</dt><dd>Self-hosted and licensed AGPL-3.0.</dd></div>
+        </dl>
+      </div>
+
+      <section class="story section-shell" id="story" aria-labelledby="story-title">
+        <div class="story-motion" aria-hidden="true">
+          <span>keep</span><span>release</span><span>return</span>
+        </div>
+        <div class="story-copy">
+          <p class="section-label">The reason</p>
+          <h2 id="story-title">A backlog can record dates. It cannot record what happened to you.</h2>
+          <p class="lead">
+            The system worked for almost three years. Then life interrupted it. That history matters because the
+            overdue tasks are residue from a difficult period, not proof that the routine or commitment was false.
+          </p>
+          <p>
+            Returning should begin with orientation: what still matters, what can be released, and what belongs in
+            this week. The app should preserve context without turning it into another form to maintain.
+          </p>
+        </div>
+
+        <div class="interruption-figure" aria-label="A visual comparison between backlog data and lived context">
+          <div class="record-card record-list">
+            <span class="record-label">The list kept</span>
+            <strong>Overdue</strong>
+            <div class="ghost-task"><i></i><span></span><b></b></div>
+            <div class="ghost-task"><i></i><span></span><b></b></div>
+            <div class="ghost-task"><i></i><span></span><b></b></div>
+          </div>
+          <div class="record-card record-context">
+            <span class="record-label">The person knew</span>
+            <strong>Life interrupted the routine.</strong>
+            <p>The return needs a new plan, not a louder warning.</p>
+          </div>
+          <ol class="return-timeline">
+            <li>
+              <span>01 · Before</span>
+              <strong>Routine held</strong>
+              <small>Almost three years</small>
+            </li>
+            <li class="timeline-interruption">
+              <span>02 · Interruption</span>
+              <strong>Life changed</strong>
+              <small>The list lost context</small>
+            </li>
+            <li class="timeline-return">
+              <span>03 · Now</span>
+              <strong>Re-orient first</strong>
+              <small>Keep, release, reschedule</small>
+            </li>
+          </ol>
+        </div>
+      </section>
+
+      <section class="product" id="product" aria-labelledby="product-title">
+        <div class="tree-motion" aria-hidden="true">
+          <i></i><i></i><i></i><i></i><i></i>
+        </div>
+        <div class="section-shell product-heading">
+          <div>
+            <p class="section-label">The product</p>
+            <h2 id="product-title">One clear surface for the day. Full depth when the work demands it.</h2>
+          </div>
+          <p>
+            A daily list should stay quiet. A professional project should expose its whole structure. The same task
+            model powers both views, so planning never requires copying work into a second system.
+          </p>
+        </div>
+
+        <div class="tree-stage section-shell">
+          <div class="tree-board" data-tree>
+            <div class="tree-board-top">
+              <div>
+                <span class="board-kicker">Interactive project tree</span>
+                <h3>Release client portal</h3>
+              </div>
+              <div class="board-progress"><strong data-progress-percent>20%</strong><span data-progress-count>2 of 10 complete</span></div>
+            </div>
+
+            <div class="tree-grid">
+              <div class="tree-list" role="tree" aria-label="Release client portal demo tasks">
+                <div class="tree-row root open" role="treeitem" aria-level="1" aria-expanded="true" aria-selected="false" data-id="release" data-title="Release client portal" data-description="The complete delivery plan, from application work through launch." data-due="24 September at 16:00" data-priority="High" data-reminder="1 day before" data-note="Collapse this branch to hide the entire project plan.">
+                  <button class="tree-toggle" type="button" aria-label="Collapse Release client portal" aria-expanded="true">−</button><button class="tree-check" type="button" aria-label="Mark Release client portal complete" aria-pressed="false"><i class="checkbox"></i></button><button class="tree-label" type="button"><b>Release client portal</b><small>10</small></button>
+                </div>
+                <div class="tree-row level-1 open" role="treeitem" aria-level="2" aria-expanded="true" aria-selected="false" data-id="application" data-parent="release" data-title="Application" data-description="All product work required for the client portal release." data-due="23 September" data-priority="High" data-reminder="Morning of" data-note="Five tasks across authentication, billing, and account settings.">
+                  <span class="branch"></span><button class="tree-toggle" type="button" aria-label="Collapse Application" aria-expanded="true">−</button><button class="tree-check" type="button" aria-label="Mark Application complete" aria-pressed="false"><i class="checkbox"></i></button><button class="tree-label" type="button"><b>Application</b><small>5</small></button>
+                </div>
+                <div class="tree-row level-2 done" role="treeitem" aria-level="3" aria-selected="false" data-id="authentication" data-parent="application" data-title="Authentication" data-description="Sign-in and session handling are ready for release." data-due="Completed" data-priority="Normal" data-reminder="None" data-note="Completed work stays visible for project context.">
+                  <span class="branch"></span><span class="tree-toggle-spacer"></span><button class="tree-check" type="button" aria-label="Mark Authentication incomplete" aria-pressed="true"><i class="checkbox">✓</i></button><button class="tree-label" type="button"><b>Authentication</b></button>
+                </div>
+                <div class="tree-row level-2 selected open" role="treeitem" aria-level="3" aria-expanded="true" aria-selected="true" data-id="billing" data-parent="application" data-title="Billing workflow" data-description="Finish and verify the payment path before the release deadline." data-due="24 September at 16:00" data-priority="High" data-reminder="1 day before" data-note="Confirm the final invoice states with finance before handoff.">
+                  <span class="branch"></span><button class="tree-toggle" type="button" aria-label="Collapse Billing workflow" aria-expanded="true">−</button><button class="tree-check" type="button" aria-label="Mark Billing workflow complete" aria-pressed="false"><i class="checkbox"></i></button><button class="tree-label" type="button"><b>Billing workflow</b><small>2</small></button>
+                </div>
+                <div class="tree-row level-3 done" role="treeitem" aria-level="4" aria-selected="false" data-id="invoice-states" data-parent="billing" data-title="Invoice states" data-description="Verify the invoice state transitions from draft to paid." data-due="Completed" data-priority="High" data-reminder="None" data-note="The state transition checks are complete.">
+                  <span class="branch"></span><span class="tree-toggle-spacer"></span><button class="tree-check" type="button" aria-label="Mark Invoice states incomplete" aria-pressed="true"><i class="checkbox">✓</i></button><button class="tree-label" type="button"><b>Invoice states</b></button>
+                </div>
+                <div class="tree-row level-3" role="treeitem" aria-level="4" aria-selected="false" data-id="receipt-email" data-parent="billing" data-title="Receipt email" data-description="Check the receipt content and delivery after payment." data-due="24 September at 13:00" data-priority="Normal" data-reminder="30 minutes before" data-note="Use a real payment receipt in the final verification.">
+                  <span class="branch"></span><span class="tree-toggle-spacer"></span><button class="tree-check" type="button" aria-label="Mark Receipt email complete" aria-pressed="false"><i class="checkbox"></i></button><button class="tree-label" type="button"><b>Receipt email</b></button>
+                </div>
+                <div class="tree-row level-2" role="treeitem" aria-level="3" aria-selected="false" data-id="account-settings" data-parent="application" data-title="Account settings" data-description="Review the profile and account preference screens." data-due="23 September" data-priority="Normal" data-reminder="Morning of" data-note="Confirm that saved preferences survive a fresh sign-in.">
+                  <span class="branch"></span><span class="tree-toggle-spacer"></span><button class="tree-check" type="button" aria-label="Mark Account settings complete" aria-pressed="false"><i class="checkbox"></i></button><button class="tree-label" type="button"><b>Account settings</b></button>
+                </div>
+                <div class="tree-row level-1 open" role="treeitem" aria-level="2" aria-expanded="true" aria-selected="false" data-id="launch" data-parent="release" data-title="Launch" data-description="Prepare, rehearse, and complete the client handoff." data-due="25 September" data-priority="High" data-reminder="1 day before" data-note="Collapse this branch when focusing only on application work.">
+                  <span class="branch"></span><button class="tree-toggle" type="button" aria-label="Collapse Launch" aria-expanded="true">−</button><button class="tree-check" type="button" aria-label="Mark Launch complete" aria-pressed="false"><i class="checkbox"></i></button><button class="tree-label" type="button"><b>Launch</b><small>2</small></button>
+                </div>
+                <div class="tree-row level-2" role="treeitem" aria-level="3" aria-selected="false" data-id="migration" data-parent="launch" data-title="Migration rehearsal" data-description="Run the migration path before the production release." data-due="24 September at 10:00" data-priority="High" data-reminder="1 hour before" data-note="Record the duration and anything that needs a rollback step.">
+                  <span class="branch"></span><span class="tree-toggle-spacer"></span><button class="tree-check" type="button" aria-label="Mark Migration rehearsal complete" aria-pressed="false"><i class="checkbox"></i></button><button class="tree-label" type="button"><b>Migration rehearsal</b></button>
+                </div>
+                <div class="tree-row level-2" role="treeitem" aria-level="3" aria-selected="false" data-id="handoff" data-parent="launch" data-title="Client handoff" data-description="Package the release notes and complete the client handoff." data-due="25 September at 15:00" data-priority="Normal" data-reminder="1 hour before" data-note="Keep the handoff concise and link the accepted scope.">
+                  <span class="branch"></span><span class="tree-toggle-spacer"></span><button class="tree-check" type="button" aria-label="Mark Client handoff complete" aria-pressed="false"><i class="checkbox"></i></button><button class="tree-label" type="button"><b>Client handoff</b></button>
+                </div>
+              </div>
+
+              <div class="tree-detail" aria-live="polite">
+                <div class="detail-title"><button class="detail-check" type="button" aria-label="Mark Billing workflow complete" aria-pressed="false"><span class="checkbox"></span></button><h3 data-detail-title>Billing workflow</h3></div>
+                <p data-detail-description>Finish and verify the payment path before the release deadline.</p>
+                <dl>
+                  <div><dt>Due</dt><dd data-detail-due>24 September at 16:00</dd></div>
+                  <div><dt>Priority</dt><dd><span class="priority-mark"></span><span data-detail-priority>High</span></dd></div>
+                  <div><dt>State</dt><dd data-detail-state>Open</dd></div>
+                  <div><dt>Reminder</dt><dd data-detail-reminder>1 day before</dd></div>
+                </dl>
+                <div class="detail-note"><span>Note</span><span data-detail-note>Confirm the final invoice states with finance before handoff.</span></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="tree-notes">
+            <article><span>01</span><h3>Daily and weekly panels</h3><p>Sort by importance or due time without losing the task's project context.</p></article>
+            <article><span>02</span><h3>Arbitrary-depth trees</h3><p>Collapse, reorder, indent, outdent, and move entire branches as one unit.</p></article>
+            <article><span>03</span><h3>Habits and focus</h3><p>Track routines and start a timer from the task that needs the attention.</p></article>
+          </div>
+        </div>
+      </section>
+
+      <section class="architecture section-shell" aria-labelledby="architecture-title">
+        <div class="architecture-copy">
+          <p class="section-label">Local-first architecture</p>
+          <h2 id="architecture-title">The phone is the working copy. The server helps devices agree.</h2>
+          <p>
+            Creating, editing, completing, and reorganizing work happens locally. Synchronization waits for a
+            connection and sends changed records instead of downloading entire projects again.
+          </p>
+          <p class="architecture-status">The first backend is running on Rust and SQLite. Tasks save on your device; private synchronization connects your devices when you are online.</p>
+        </div>
+
+        <div class="system-map" aria-label="Offline phone synchronizing changed records with a small server and SQLite backups">
+          <div class="system-node phone-node">
+            <span class="node-cap">Your phone <b>Offline-ready</b></span>
+            <div class="local-actions">
+              <span><i></i>Edit task <small>saved now</small></span>
+              <span><i></i>Complete habit <small>saved now</small></span>
+              <span><i></i>Reorder branch <small>saved now</small></span>
+            </div>
+            <div class="storage-block"><strong>IndexedDB</strong><small>working copy</small></div>
+          </div>
+          <div class="sync-route">
+            <span class="sync-label"><b>Outbox</b><small>3 changes wait locally</small></span>
+            <div class="sync-track" aria-hidden="true"><i></i><i></i><i></i></div>
+            <span class="sync-label sync-online"><b>When online</b><small>send only changed records</small></span>
+          </div>
+          <div class="system-node server-node">
+            <span class="node-cap">Small VPS <b>When online</b></span>
+            <div class="server-flow">
+              <span><b>Sync API</b><small>accept deltas</small></span>
+              <i></i>
+              <span><b>SQLite</b><small>shared state</small></span>
+              <i></i>
+              <span><b>Backups</b><small>recoverable copy</small></span>
+            </div>
+          </div>
+          <p class="system-caption"><b>Offline:</b> nothing waits. <b>Online:</b> the outbox drains and another device can catch up.</p>
+        </div>
+      </section>
+
+      <section class="source" id="source" aria-labelledby="source-title">
+        <div class="source-pattern" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+        <div class="section-shell source-inner">
+          <div>
+            <p class="section-label">Built in public</p>
+            <h2 id="source-title">Read the decisions. Inspect the code. Run your own copy.</h2>
+          </div>
+          <div class="source-action">
+            <p>
+              The project uses AGPL-3.0. The repository link will appear here with the first public push. Until then,
+              this page describes active development rather than a finished product.
+            </p>
+            <span class="button button-disabled" aria-disabled="true">Repository link pending</span>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="section-shell">
+      <span>todo.gharawi.sa</span>
+      <span>Open source under AGPL-3.0</span>
+    </footer>
+    <dialog id="install-help" class="install-dialog">
+      <form method="dialog"><button class="button button-quiet">Close</button></form>
+      <p class="section-label">Your day, one tap away</p>
+      <h2>Give your plans a home.</h2>
+      <p>On iPhone, open this site in Safari, tap Share, then Add to Home Screen. Enable Open as Web App if offered.</p>
+      <p>On Android, open your browser menu and choose Install app or Add to Home screen. On desktop, use the install icon in the address bar.</p>
+      <p data-install-status>The app stores tasks on your device and works offline after its first load. Connect private sync inside the app to use your server.</p>
+      <a class="button button-primary" href="/app/">Open my tasks</a>
+    </dialog>
+    <script type="module" src="./install.js"></script>
+    <script type="module" src="./interactions.js"></script>
+  </body>
+</html>

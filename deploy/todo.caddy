@@ -1,0 +1,13 @@
+todo.gharawi.sa {
+    encode zstd gzip
+    header {
+        X-Content-Type-Options nosniff
+        Referrer-Policy no-referrer
+        X-Frame-Options DENY
+        Permissions-Policy "camera=(), microphone=(), geolocation=()"
+        Strict-Transport-Security "max-age=31536000"
+    }
+    @private path /api/*
+    header @private Cache-Control "no-store"
+    reverse_proxy gharawi-todo:8080
+}

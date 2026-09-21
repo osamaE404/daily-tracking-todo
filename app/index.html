@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en"><head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#111720"><title>Your day · Todo</title>
+  <link rel="manifest" href="/manifest.webmanifest"><link rel="apple-touch-icon" href="/icons/icon-192.png">
+  <link rel="stylesheet" href="/app/app.css">
+</head><body>
+  <header><a href="/">todo.gharawi.sa</a><button data-install>Install on this device</button></header>
+  <main>
+    <div class="heading"><div><p class="eyebrow">Your working copy</p><h1>A little forward.</h1></div><button id="connect">Connect private sync</button></div>
+    <p id="status" role="status">Opening your local tasks…</p>
+    <nav aria-label="Task views"><button data-view="all" aria-pressed="true">All tasks</button><button data-view="today" aria-pressed="false">Today</button><button data-view="week" aria-pressed="false">This week</button><button data-view="done" aria-pressed="false">Completed</button></nav>
+    <form id="add"><label class="sr-only" for="title">New task</label><input id="title" name="title" required maxlength="1000" placeholder="What needs doing?" autocomplete="off"><button>Add task</button></form>
+    <div class="toolbar"><label>Sort <select id="sort"><option value="due">Due time</option><option value="priority">Importance</option></select></label><button id="sync">Sync now</button><button id="export">Export backup</button></div>
+    <div id="tasks" aria-label="Tasks"></div>
+    <p class="hint">Tasks save on this device. Connect private sync to share them with your other devices. This first version includes tasks, nested subtasks, notes, and deadlines; habits and notifications are still being built.</p>
+  </main>
+  <dialog id="editor"><form method="dialog"><button class="close">Close</button></form><form id="edit">
+    <h2>Edit task</h2><label>Title<input name="title" required maxlength="1000"></label>
+    <label>Notes<textarea name="notes" rows="5" maxlength="32000"></textarea></label>
+    <label>Due date and time<input name="due" type="datetime-local"></label>
+    <label>Importance<select name="priority"><option value="0">None</option><option value="1">Low</option><option value="2">Medium</option><option value="3">High</option></select></label>
+    <button>Save changes</button>
+  </form></dialog>
+  <dialog id="connection"><form method="dialog"><button class="close">Close</button></form><h2>Your devices, connected.</h2><p>Enter the private sync token from your server. It stays in this tab’s session. The public website cannot access your tasks without it.</p><form id="unlock"><label>Private sync token<input name="token" type="password" required minlength="32" autocomplete="off"></label><button>Connect and sync</button></form><button id="lock">Lock sync</button></dialog>
+  <dialog id="install-help"><form method="dialog"><button class="close">Close</button></form><h2>Make room for your day.</h2><p>On iPhone: open this page in Safari, tap Share, then Add to Home Screen and enable Open as Web App if offered.</p><p>On Android: use your browser menu → Install app or Add to Home screen. On desktop, look for the install icon in the address bar.</p><p data-install-status>Installation needs HTTPS and a supported browser. Your tasks stay available offline after the app finishes its first load.</p></dialog>
+  <script type="module" src="/app/app.js"></script><script type="module" src="/install.js"></script>
+</body></html>

@@ -1,0 +1,17 @@
+#!/bin/sh
+set -eu
+if [ "$#" -gt 1 ]; then
+    echo 'Usage: todo {status|health|logs|backup|backups|-h}' >&2
+    exit 2
+fi
+case "${1:--h}" in
+    -h|--help|help) cat /root/help.d/todo.help ;;
+    status|logs)
+        cd /opt/gharawi-todo
+        if [ "$1" = status ]; then docker compose ps todo
+        else docker compose logs --tail=50 todo; fi ;;
+    health) curl --fail --silent --show-error --max-time 15 https://todo.gharawi.sa/api/health; echo ;;
+    backup) python3 /opt/gharawi-todo/backup.py ;;
+    backups) find /opt/gharawi-todo/backups -maxdepth 1 -type f -name 'todo-????-??-??.db' -printf '%f\n' | sort ;;
+    *) echo 'Usage: todo {status|health|logs|backup|backups|-h}' >&2; exit 2 ;;
+esac

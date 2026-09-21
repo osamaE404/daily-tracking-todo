@@ -1,0 +1,1 @@
+17 2 * * * root /usr/bin/python3 /opt/gharawi-todo/backup.py

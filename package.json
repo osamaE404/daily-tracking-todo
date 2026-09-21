@@ -1,0 +1,8 @@
+{
+  "name": "gharawi-todo",
+  "private": true,
+  "scripts": {
+    "dev": "bun --hot index.html",
+    "test": "bun test"
+  }
+}

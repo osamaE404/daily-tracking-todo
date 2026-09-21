@@ -1,0 +1,25 @@
+todo - personal offline task app
+
+  Website: https://todo.gharawi.sa
+  App:     https://todo.gharawi.sa/app/
+
+  todo -h          show this help
+  todo status      show the Todo container's current state
+  todo health      check the public HTTPS health endpoint
+  todo logs        show the last 50 container log lines
+  todo backup      create and integrity-check today's SQLite backup
+  todo backups     list the retained daily backup files
+
+  Tasks, nested subtasks, notes, dates, priorities and private sync work.
+  Habits, scheduled reminders and a full focus workflow are not ready.
+  Use the install button; on iPhone use Safari Share > Add to Home Screen.
+
+  Sync credential: /opt/gharawi-todo/.env (TODO_SYNC_TOKEN).
+  Keep this token private; enter it in Connect private sync on your device.
+  Service files and data: /opt/gharawi-todo
+  Caddy configuration: todo.caddy in your proxy's imported configuration directory
+  Daily backup schedule: /etc/cron.d/gharawi-todo-backup
+  Seven daily backups are retained on this VPS, not off-server.
+
+  Never copy only the live todo.db file: outstanding writes may be in its WAL.
+  Use `todo backup` for a consistent copy. Never share the .env file.
