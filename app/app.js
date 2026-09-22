@@ -1,169 +1,257 @@
+import { COLORS, PRIORITIES, VIEWS, dayOffset, dueLabel, isOverdue, localDate, matches, newTask, taskRows } from './model.js';
+import { openStore } from './store.js';
+import { createCalendar } from './calendar.js';
+
 const $ = selector => document.querySelector(selector);
 const status = message => { $('#status').textContent = message; };
-const open = indexedDB.open('gharawi-todo', 1);
-open.onupgradeneeded = () => open.result.createObjectStore('state');
-const db = await new Promise((resolve, reject) => {
-  open.onsuccess = () => resolve(open.result);
-  open.onerror = () => reject(open.error);
-}).catch(error => { status('Device storage is unavailable. Enable browser storage and reload before adding tasks.'); throw error; });
-const stored = await new Promise((resolve, reject) => {
-  const request = db.transaction('state').objectStore('state').get('main');
-  request.onsuccess = () => resolve(request.result);
-  request.onerror = () => reject(request.error);
+const attempt = action => Promise.resolve().then(action).catch(error => status(error.message));
+let state, view = 'all', selected, draft, original, dirty = false, collectionEditing, subtaskParent;
+const collapsed = new Set(), collapsedFolders = new Set();
+const store = await openStore(next => { state = next; render(); }, status).catch(error => {
+  status('Cannot open device storage. Enable browser storage and reload before adding tasks.'); throw error;
 });
-let state = stored || { cursor: 0, tasks: {}, pending: {}, conflicts: {} };
-let token = sessionStorage.getItem('todo-sync-token') || '';
-let view = 'all';
-let editing;
-const collapsed = new Set();
-let work = Promise.resolve();
-function enqueue(action) {
-  work = work.then(action).catch(error => status(error.message || 'Operation failed. Your pending work remains on this device.'));
-  return work;
+state = store.state;
+
+function element(tag, className, text) {
+  const node = document.createElement(tag); if (className) node.className = className;
+  if (text !== undefined) node.textContent = text;
+  return node;
 }
-async function save(next) {
-  await new Promise((resolve, reject) => {
-    const tx = db.transaction('state', 'readwrite');
-    tx.objectStore('state').put(next, 'main');
-    tx.oncomplete = resolve;
-    tx.onerror = () => reject(tx.error);
-    tx.onabort = () => reject(tx.error || new Error('Local save aborted'));
-  });
-  state = next;
-  render();
+function button(text, action, label, className) {
+  const node = element('button', className, text); node.type = 'button';
+  if (label) node.setAttribute('aria-label', label);
+  node.onclick = () => attempt(action); return node;
 }
-function localDate(date) {
-  const shifted = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
-  return shifted.toISOString().slice(0, 10);
+function collections(kind) { return Object.values(state.collections).filter(item => !item.deleted && item.kind === kind).sort((a, b) => a.title.localeCompare(b.title)); }
+function count(id) { return Object.values(state.tasks).filter(task => matches(task, id, state.collections)).length; }
+function discardDraft() { return !dirty || confirm('Discard the unsaved changes to this task?'); }
+function closeNavigation() { document.body.classList.remove('nav-open'); $('#main').inert = false; $('#details').inert = false; $('#open-nav').focus(); }
+function openNavigation() {
+  document.body.classList.add('nav-open');
+  if (innerWidth < 720) { $('#main').inert = true; $('#details').inert = true; }
+  $('#close-nav').focus();
 }
-function matches(task) {
-  if (view === 'done') return task.done;
-  if (view === 'all') return true;
-  if (task.done || !task.due) return false;
-  const today = localDate(new Date());
-  const end = new Date(); end.setDate(end.getDate() + 6);
-  return task.due.slice(0, 10) <= (view === 'today' ? today : localDate(end));
+function chooseView(id) {
+  if (!discardDraft()) return;
+  dirty = false; view = id; selected = null; draft = null; closeDetails(false); closeNavigation(); render();
 }
-function button(text, action, label) {
-  const element = document.createElement('button');
-  element.type = 'button'; element.textContent = text;
-  if (label) element.setAttribute('aria-label', label);
-  element.addEventListener('click', action);
-  return element;
+function navItem(id, name, icon, color) {
+  const node = button('', () => chooseView(id), null, 'nav-item'); node.dataset.view = id;
+  node.dataset.color = color || 'blue'; node.setAttribute('aria-current', view === id ? 'page' : 'false');
+  node.append(element('span', 'nav-icon', icon), element('span', 'nav-title', name), element('span', 'count', count(id)));
+  return node;
+}
+function renderNavigation() {
+  const icons = { all: '▤', today: '☀', tomorrow: '↗', week: '▦', inbox: '▱', done: '✓' };
+  $('#views').replaceChildren(...Object.entries(VIEWS).map(([id, name]) => navItem(id, name, icons[id])));
+  const list = $('#collections'); list.replaceChildren();
+  for (const folder of collections('folder')) {
+    const group = element('div', 'folder-row');
+    const toggle = button(collapsedFolders.has(folder.id) ? '›' : '⌄', () => { collapsedFolders.has(folder.id) ? collapsedFolders.delete(folder.id) : collapsedFolders.add(folder.id); renderNavigation(); }, `Toggle folder ${folder.title}`);
+    toggle.setAttribute('aria-expanded', String(!collapsedFolders.has(folder.id)));
+    group.append(toggle, navItem(folder.id, folder.title, '▱', folder.color)); list.append(group);
+    if (!collapsedFolders.has(folder.id)) {
+      const children = element('div', 'folder-children');
+      for (const item of collections('list').filter(item => item.parent === folder.id)) children.append(navItem(item.id, item.title, '▤', item.color));
+      list.append(children);
+    }
+  }
+  for (const item of collections('list').filter(item => !item.parent)) list.append(navItem(item.id, item.title, '▤', item.color));
+  if (!list.children.length) list.append(element('p', 'nav-hint', 'Create a list for an area of your life. Use folders to group lists.'));
+  $('#tags').replaceChildren(...collections('tag').map(tag => navItem(tag.id, tag.title, '#', tag.color)));
+  if (!collections('tag').length) $('#tags').append(element('p', 'nav-hint', 'Tags connect tasks across lists.'));
+  document.querySelectorAll('.bottom-nav [data-view]').forEach(node => node.setAttribute('aria-current', node.dataset.view === view ? 'page' : 'false'));
+}
+function checkTask(task) {
+  const label = element('label', 'check-label'); label.dataset.priority = task.priority;
+  const check = element('input', 'task-check'); check.type = 'checkbox'; check.checked = task.done;
+  check.setAttribute('aria-label', `${task.done ? 'Mark incomplete' : 'Complete'}: ${task.title} (${PRIORITIES[task.priority]})`);
+  check.onchange = () => attempt(() => store.update(next => {
+    next.tasks[task.id].done = check.checked; next.pending[task.id] = true;
+  }));
+  label.append(check); return label;
+}
+function row({ task, depth = 0, count = 0, context = false }) {
+  const node = element('div', `task-row${task.done ? ' done' : ''}${task.id === selected ? ' selected' : ''}${context ? ' context' : ''}`);
+  node.dataset.id = task.id; node.dataset.priority = task.priority; node.style.setProperty('--depth', depth);
+  if (count) {
+    const toggle = button(collapsed.has(task.id) ? '›' : '⌄', () => { collapsed.has(task.id) ? collapsed.delete(task.id) : collapsed.add(task.id); render(); }, `Toggle subtasks of ${task.title}`, 'branch');
+    toggle.setAttribute('aria-expanded', String(!collapsed.has(task.id))); node.append(toggle);
+  } else node.append(element('span', 'branch-space'));
+  node.append(checkTask(task));
+  const title = button('', () => openTask(task.id), `Edit ${task.title}`, 'task-name'); title.append(element('strong', '', task.title));
+  const meta = element('span', 'task-meta');
+  if (task.pinned) meta.append(element('span', '', 'Pinned'));
+  if (task.priority) meta.append(element('span', 'priority-label', PRIORITIES[task.priority]));
+  if (task.due) meta.append(element('span', `due${isOverdue(task) ? ' overdue' : ''}`, `${isOverdue(task) ? 'Overdue · ' : ''}${dueLabel(task.due)}`));
+  const list = state.collections[task.list_id];
+  if (list) { const label = element('span', 'list-label', list.title); label.dataset.color = list.color; meta.append(label); }
+  for (const id of task.tags) {
+    const tag = state.collections[id]; if (!tag) continue;
+    const label = element('span', 'tag', `#${tag.title}`); label.dataset.color = tag.color; meta.append(label);
+  }
+  if (depth) meta.append(element('span', '', `Subtask · level ${depth}`));
+  if (count) meta.append(element('span', '', `${count} subtask${count === 1 ? '' : 's'}`));
+  title.append(meta); node.append(title); return node;
 }
 function render() {
-  const list = $('#tasks'); list.replaceChildren();
-  const tasks = Object.values(state.tasks).filter(task => !task.deleted);
-  const children = new Map();
-  for (const task of tasks) {
-    const key = tasks.some(parent => parent.id === task.parent) ? task.parent : null;
-    if (!children.has(key)) children.set(key, []);
-    children.get(key).push(task);
+  renderNavigation();
+  const name = VIEWS[view] || state.collections[view]?.title || 'All tasks';
+  $('#view-title').textContent = name; document.title = `${name} · Todo`; $('#view-count').textContent = count(view);
+  $('#edit-collection').hidden = !state.collections[view];
+  $('#edit-collection').textContent = `Edit ${state.collections[view]?.kind || 'list'}`;
+  $('#title').placeholder = `Add a task to ${state.collections[view]?.kind === 'list' ? name : 'Inbox'}`;
+  const rows = taskRows(state.tasks, view, state.collections, collapsed, $('#sort').value, $('#search').value);
+  const list = $('#tasks'); list.replaceChildren(); let previousGroup;
+  for (const item of rows) {
+    const group = item.task.pinned ? 'Pinned' : item.task.done ? 'Completed' : isOverdue(item.task) ? 'Overdue' : item.task.due ? 'Scheduled' : 'No date';
+    if (!item.depth && group !== previousGroup) { list.append(element('div', `group-heading${group === 'Overdue' ? ' overdue' : ''}`, group)); previousGroup = group; }
+    list.append(row(item));
   }
-  const sort = (a, b) => $('#sort').value === 'priority'
-    ? b.priority - a.priority || a.title.localeCompare(b.title)
-    : (a.due || '9999').localeCompare(b.due || '9999') || a.title.localeCompare(b.title);
-  const seen = new Set();
-  function row(task, depth = 0) {
-    if (seen.has(task.id)) return;
-    seen.add(task.id);
-    const branch = children.get(task.id) || [];
-    if (matches(task)) {
-      const element = document.createElement('div'); element.className = `task-row${task.done ? ' done' : ''}`;
-      element.style.setProperty('--depth', depth);
-      if (branch.length) {
-        const toggle = button(collapsed.has(task.id) ? '+' : '−', () => { collapsed.has(task.id) ? collapsed.delete(task.id) : collapsed.add(task.id); render(); }, `Toggle subtasks of ${task.title}`);
-        toggle.setAttribute('aria-expanded', String(!collapsed.has(task.id))); element.append(toggle);
-      }
-      const label = document.createElement('label'); label.className = 'check-label';
-      const check = document.createElement('input'); check.type = 'checkbox'; check.checked = task.done;
-      check.setAttribute('aria-label', `Complete ${task.title}`);
-      check.onchange = () => enqueue(() => change({ ...task, done: check.checked }));
-      label.append(check); element.append(label);
-      const title = button('', () => edit(task)); title.className = 'task-name';
-      const strong = document.createElement('strong'); strong.textContent = task.title;
-      const meta = document.createElement('small'); meta.textContent = [task.due && new Date(task.due).toLocaleString(), ['','Low','Medium','High'][task.priority]].filter(Boolean).join(' · ');
-      title.append(strong, meta); element.append(title);
-      element.append(button('+', () => { const title = prompt('Subtask title'); if (title?.trim()) enqueue(() => create(title, task.id)); }, `Add subtask to ${task.title}`));
-      list.append(element);
-    }
-    if (!collapsed.has(task.id) || view !== 'all') branch.sort(sort).forEach(child => row(child, depth + 1));
+  if (!rows.length) {
+    const empty = element('div', 'empty-list'); empty.append(element('span', 'empty-check', '✓'), element('h2', '', $('#search').value ? 'No matching tasks' : 'Nothing in this view yet'), element('p', '', $('#search').value ? 'Try another search or choose a different view.' : 'Add a task above, or choose another list.'));
+    list.append(empty);
   }
-  (children.get(null) || []).sort(sort).forEach(task => row(task));
-  if (!list.children.length) { const empty = document.createElement('p'); empty.textContent = 'Nothing here yet. Add a task or choose another view.'; list.append(empty); }
-  for (const [id, remote] of Object.entries(state.conflicts)) {
-    const notice = document.createElement('div'); notice.className = 'conflict';
-    const text = document.createElement('p'); text.textContent = `Both devices edited “${state.tasks[id]?.title}”. Server version: “${remote.title}”. Choose which to keep, or export a backup first.`;
-    notice.append(text, button('Keep this device', () => enqueue(() => resolveConflict(id, false))), button('Use server version', () => enqueue(() => resolveConflict(id, true))));
-    list.prepend(notice);
+  $('#conflicts').replaceChildren();
+  for (const [records, collection] of [[state.conflicts, false], [state.collectionConflicts, true]]) for (const [id, remote] of Object.entries(records)) {
+    const notice = element('div', 'conflict');
+    notice.append(element('p', '', `Another device changed “${remote.title}”. Export a backup before choosing if you need both versions.`), button('Keep this device', () => store.resolve(id, collection, false)), button('Use server version', () => store.resolve(id, collection, true)));
+    $('#conflicts').append(notice);
+  }
+  if (selected && !dirty) fillEditor(state.tasks[selected]);
+  else if (selected) renderSubtasks();
+}
+function populateSelect(select, items, empty, value) {
+  select.replaceChildren(new Option(empty, ''));
+  for (const item of items) select.add(new Option(item.parent ? `${state.collections[item.parent]?.title} / ${item.title}` : item.title, item.id));
+  select.value = value || '';
+}
+function fillEditor(task) {
+  if (!task) return;
+  draft = structuredClone(task); original = structuredClone(task);
+  const form = $('#edit'); form.hidden = false; $('#detail-empty').hidden = true;
+  for (const key of ['title', 'notes', 'priority']) form.elements[key].value = task[key];
+  populateSelect($('#task-list'), collections('list'), 'Inbox', task.list_id);
+  renderTags(); renderSubtasks(); updateDraftControls();
+  $('#edit-status').textContent = 'No unsaved changes';
+}
+function renderTags() {
+  $('#task-tags').replaceChildren();
+  for (const tag of collections('tag')) {
+    const label = element('label', 'tag-choice'); label.dataset.color = tag.color;
+    const check = element('input'); check.type = 'checkbox'; check.value = tag.id; check.checked = draft.tags.includes(tag.id); check.name = 'tags';
+    label.append(check, document.createTextNode(`#${tag.title}`)); $('#task-tags').append(label);
   }
 }
-async function change(task) {
-  const next = structuredClone(state); next.tasks[task.id] = task; next.pending[task.id] = true;
-  await save(next); status('Saved on this device.');
-  if (token && navigator.onLine) enqueue(synchronize);
+function renderSubtasks() {
+  $('#detail-subtasks').replaceChildren(...Object.values(state.tasks).filter(task => !task.deleted && task.parent === selected).map(task => row({ task })));
 }
-async function create(title, parent = null) {
-  await change({ id: crypto.randomUUID(), title: title.trim(), notes: '', due: '', priority: 0, parent, done: false, deleted: false, revision: 0 });
+function updateDraftControls() {
+  $('#schedule span').textContent = dueLabel(draft.due);
+  $('#priority').dataset.priority = $('#priority').value;
+  $('#pin').setAttribute('aria-pressed', String(draft.pinned)); $('#pin').textContent = draft.pinned ? 'Pinned' : 'Pin';
 }
-async function resolveConflict(id, useServer) {
-  const next = structuredClone(state);
-  next.tasks[id] = useServer ? next.conflicts[id] : { ...next.tasks[id], revision: next.conflicts[id].revision };
-  delete next.conflicts[id];
-  if (useServer) delete next.pending[id];
-  await save(next); await synchronize();
+function markDirty() { dirty = true; $('#edit-status').textContent = 'Unsaved changes'; updateDraftControls(); }
+function openTask(id) {
+  if (!discardDraft()) return;
+  dirty = false; selected = id; fillEditor(state.tasks[id]); document.body.classList.add('detail-open');
+  if (innerWidth < 1150) { $('#main').inert = true; $('#navigation').inert = true; }
+  render(); $('#edit-title').focus();
 }
-async function synchronize() {
-  if (!token) { status('Saved locally. Connect private sync to use another device.'); return; }
-  const ids = Object.keys(state.pending).filter(id => !state.conflicts[id]).slice(0, 500);
-  status('Synchronizing…');
-  const response = await fetch('/api/sync', {
-    method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ cursor: state.cursor, changes: ids.map(id => state.tasks[id]) }),
-    signal: AbortSignal.timeout(15000), cache: 'no-store',
-  }).catch(() => { throw new Error('Connection unavailable. Your edits are saved locally and will retry when you reconnect.'); });
-  if (!response.ok) throw new Error(response.status === 401 ? 'Sync token was rejected. Reconnect with your private token.' : `Sync failed (${response.status}). Pending edits remain saved locally.`);
-  const result = await response.json();
-  const next = structuredClone(state);
-  for (const conflict of result.conflicts) next.conflicts[conflict.id] = conflict;
-  for (const id of ids) if (!next.conflicts[id]) delete next.pending[id];
-  for (const record of result.records) if (!next.pending[record.id]) next.tasks[record.id] = record;
-  next.cursor = result.cursor;
-  await save(next);
-  const pending = Object.keys(state.pending).length;
-  status(pending ? `${pending} local edit(s) pending. Resolve any conflicts shown below.` : 'Saved here and synchronized with your server.');
+function closeDetails(confirmChanges = true) {
+  if (confirmChanges && !discardDraft()) return;
+  dirty = false; selected = null; draft = null; document.body.classList.remove('detail-open');
+  $('#main').inert = false; $('#navigation').inert = false; $('#edit').hidden = true; $('#detail-empty').hidden = false;
+  $('#title').focus();
 }
-function edit(task) {
-  editing = task.id;
-  const form = $('#edit');
-  for (const key of ['title','notes','due','priority']) form.elements[key].value = task[key];
-  $('#editor').showModal();
+async function addTask(title, parent = null) {
+  const id = crypto.randomUUID();
+  await store.update(next => {
+    const inherited = parent ? next.tasks[parent] : null;
+    next.tasks[id] = newTask(title, { id, parent, list_id: inherited?.list_id || (next.collections[view]?.kind === 'list' ? view : null),
+      tags: inherited ? [...inherited.tags] : next.collections[view]?.kind === 'tag' ? [view] : [],
+      due: parent ? '' : view === 'today' ? localDate() : view === 'tomorrow' ? dayOffset(1) : view === 'week' ? localDate() : '' });
+    next.pending[id] = true;
+  });
+  return id;
 }
-$('#add').onsubmit = event => {
-  event.preventDefault(); const title = $('#title').value;
-  enqueue(async () => { await create(title); $('#title').value = ''; });
-};
+function openCollection(kind, item) {
+  collectionEditing = item?.id;
+  const form = $('#collection-form'); form.reset(); form.elements.kind.value = item?.kind || kind; form.elements.kind.disabled = Boolean(item);
+  form.elements.title.value = item?.title || '';
+  populateSelect(form.elements.parent, collections('folder'), 'No folder', item?.parent);
+  $('#collection-heading').textContent = item ? `Edit ${item.kind}` : `New ${kind}`;
+  $('#folder-field').hidden = form.elements.kind.value !== 'list'; $('#color-options').replaceChildren();
+  for (const color of COLORS) {
+    const label = element('label', 'color-choice'); label.dataset.color = color;
+    const input = element('input'); input.type = 'radio'; input.name = 'color'; input.value = color; input.checked = color === (item?.color || 'blue');
+    label.append(input, document.createTextNode(color)); $('#color-options').append(label);
+  }
+  $('#collection-dialog').showModal(); form.elements.title.focus();
+}
+
+const showCalendar = createCalendar(due => { draft.due = due; markDirty(); });
+$('#schedule').onclick = () => showCalendar(draft.due);
+$('#pin').onclick = () => { draft.pinned = !draft.pinned; markDirty(); };
+$('#edit').oninput = markDirty;
 $('#edit').onsubmit = event => {
-  event.preventDefault(); const data = new FormData(event.target); const id = editing;
-  enqueue(async () => { await change({ ...state.tasks[id], title: data.get('title').trim(), notes: data.get('notes'), due: data.get('due'), priority: Number(data.get('priority')) }); $('#editor').close(); });
+  event.preventDefault(); const form = event.target; const id = selected;
+  const fields = { title: form.elements.title.value.trim(), notes: form.elements.notes.value, priority: Number(form.elements.priority.value), list_id: form.elements.list_id.value || null,
+    tags: [...form.querySelectorAll('[name="tags"]:checked')].map(input => input.value), due: draft.due, pinned: draft.pinned };
+  const baseline = structuredClone(original);
+  attempt(async () => {
+    if (!fields.title) throw new Error('Give the task a title before saving.');
+    await store.update(next => {
+      for (const key of Object.keys(fields)) if (JSON.stringify(next.tasks[id][key]) !== JSON.stringify(baseline[key])) throw new Error('This task changed while you were editing. Copy your draft, then reopen the task before saving.');
+      Object.assign(next.tasks[id], fields); next.pending[id] = true;
+    });
+    dirty = false; fillEditor(state.tasks[id]); $('#edit-status').textContent = 'Saved on this device';
+  });
 };
-document.querySelectorAll('[data-view]').forEach(item => item.onclick = () => {
-  view = item.dataset.view;
-  document.querySelectorAll('[data-view]').forEach(other => other.setAttribute('aria-pressed', String(other === item)));
-  render();
-});
-$('#sort').onchange = render;
+$('#add').onsubmit = event => {
+  event.preventDefault(); const title = $('#title').value.trim(); if (!title) return;
+  const submit = event.submitter || $('#add button'); submit.disabled = true;
+  attempt(async () => { await addTask(title); $('#title').value = ''; $('#title').focus(); }).finally(() => { submit.disabled = false; });
+};
+$('#add-subtask').onclick = () => { subtaskParent = selected; $('#subtask-form').reset(); $('#subtask-dialog').showModal(); };
+$('#subtask-form').onsubmit = event => {
+  event.preventDefault(); const title = event.target.elements.title.value.trim(); if (!title) return;
+  attempt(async () => { await addTask(title, subtaskParent); collapsed.delete(subtaskParent); $('#subtask-dialog').close(); render(); });
+};
+document.querySelectorAll('[data-create]').forEach(node => node.onclick = () => openCollection(node.dataset.create));
+$('#edit-collection').onclick = () => openCollection('', state.collections[view]);
+$('#collection-form').elements.kind.onchange = event => { $('#folder-field').hidden = event.target.value !== 'list'; };
+$('#collection-form').onsubmit = event => {
+  event.preventDefault(); const form = event.target, kind = form.elements.kind.value, id = collectionEditing || crypto.randomUUID();
+  const fields = { kind, title: form.elements.title.value.trim(), color: form.elements.color.value, parent: kind === 'list' ? form.elements.parent.value || null : null };
+  attempt(async () => {
+    if (!fields.title) throw new Error('Give the collection a name.');
+    await store.update(next => { next.collections[id] = { id, revision: 0, deleted: false, ...next.collections[id], ...fields }; next.pendingCollections[id] = true; });
+    $('#collection-dialog').close();
+    if (draft) { const currentList = $('#task-list').value; populateSelect($('#task-list'), collections('list'), 'Inbox', currentList); draft.tags = [...$('#task-tags input:checked')].map(input => input.value); renderTags(); }
+  });
+};
+$('#close-detail').onclick = () => { closeDetails(); render(); };
+$('#open-nav').onclick = openNavigation; $('#bottom-lists').onclick = openNavigation; $('#close-nav').onclick = closeNavigation;
+document.querySelectorAll('.bottom-nav [data-view]').forEach(node => node.onclick = () => chooseView(node.dataset.view));
+$('#search').oninput = render; $('#sort').onchange = render;
 $('#connect').onclick = () => $('#connection').showModal();
-$('#unlock').onsubmit = event => {
-  event.preventDefault(); token = new FormData(event.target).get('token');
-  sessionStorage.setItem('todo-sync-token', token); event.target.reset(); $('#connection').close(); enqueue(synchronize);
-};
-$('#lock').onclick = () => { token = ''; sessionStorage.removeItem('todo-sync-token'); $('#connection').close(); status('Sync locked. Local tasks remain on this device.'); };
-$('#sync').onclick = () => enqueue(synchronize);
+$('#unlock').onsubmit = event => { event.preventDefault(); const token = event.target.elements.token.value; event.target.reset(); $('#connection').close(); attempt(() => store.connect(token)); };
+$('#lock').onclick = () => { store.lock(); $('#connection').close(); };
+$('#sync').onclick = () => attempt(() => store.synchronize());
 $('#export').onclick = () => {
   const url = URL.createObjectURL(new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' }));
-  const anchor = document.createElement('a'); anchor.href = url; anchor.download = `todo-${localDate(new Date())}.json`; anchor.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+  const anchor = document.createElement('a'); anchor.href = url; anchor.download = `todo-${localDate()}.json`; anchor.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
 };
-addEventListener('online', () => enqueue(synchronize));
+addEventListener('online', () => attempt(() => store.synchronize()));
+addEventListener('beforeunload', event => { if (dirty) { event.preventDefault(); event.returnValue = ''; } });
+addEventListener('keydown', event => {
+  if (event.key !== 'Escape' || document.querySelector('dialog[open]')) return;
+  if (document.body.classList.contains('nav-open')) closeNavigation(); else closeDetails();
+});
+addEventListener('resize', () => {
+  $('#main').inert = (innerWidth < 720 && document.body.classList.contains('nav-open')) || (innerWidth < 1150 && document.body.classList.contains('detail-open'));
+  $('#navigation').inert = innerWidth < 1150 && document.body.classList.contains('detail-open');
+});
 render(); status('Ready. Tasks save on this device first.');
-if (token && navigator.onLine) enqueue(synchronize);
+if (sessionStorage.getItem('todo-sync-token') && navigator.onLine) attempt(() => store.synchronize());

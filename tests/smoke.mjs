@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtemp } from 'node:fs/promises';
+import { mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -16,7 +16,7 @@ async function until(check) {
 }
 try {
   await until(async () => (await fetch(`${base}/api/health`)).ok);
-  const request = (body, secret = token) => fetch(`${base}/api/sync`, { method:'POST', headers:{'Content-Type':'application/json', Authorization:`Bearer ${secret}`}, body:JSON.stringify(body) });
+  const request = (body, secret = token) => fetch(`${base}/api/sync`, { method:'POST', headers:{'Content-Type':'application/json', Authorization:`Bearer ${secret}`}, body:JSON.stringify({schema:2,collections:[],...body}) });
   assert.equal((await request({cursor:0,changes:[]}, 'wrong')).status, 401);
   assert.equal((await fetch(`${base}/.env`)).status, 404);
   assert.equal((await fetch(`${base}/src/main.rs`)).status, 404);
@@ -45,21 +45,52 @@ try {
     if (result.exceptionDetails) throw new Error(JSON.stringify(result.exceptionDetails));
     return result.result.value;
   };
+  const capture = async name => {
+    const result = await call('Page.captureScreenshot', {format:'png',fromSurface:true});
+    await writeFile(join(scratch, name), Buffer.from(result.data, 'base64'));
+  };
   await call('Runtime.enable'); await call('Network.enable');
   await until(()=>evaluate("document.querySelector('#status')?.textContent.includes('Ready')"));
   await evaluate('navigator.serviceWorker.ready.then(() => true)');
+  await evaluate('window.__beforeSmokeReload = true');
   await call('Page.reload');
-  await until(()=>evaluate("Boolean(navigator.serviceWorker.controller) && document.querySelector('#status')?.textContent.includes('Ready')"));
+  await until(()=>evaluate("!window.__beforeSmokeReload && document.readyState === 'complete' && Boolean(navigator.serviceWorker.controller) && document.querySelector('#status')?.textContent.includes('Ready')"));
+  await evaluate("document.querySelector('[data-create=list]').click();document.querySelector('#collection-form [name=title]').value='Work';document.querySelector('#collection-form').requestSubmit()");
+  await until(()=>evaluate("document.querySelector('#collections').textContent.includes('Work')"));
+  await evaluate("document.querySelector('[data-create=tag]').click();document.querySelector('#collection-form [name=title]').value='Next';document.querySelector('#collection-form').requestSubmit()");
+  await until(()=>evaluate("document.querySelector('#tags').textContent.includes('Next')"));
+  await evaluate("[...document.querySelectorAll('#collections .nav-item')].find(node=>node.textContent.includes('Work')).click()");
   await call('Network.emulateNetworkConditions', {offline:true,latency:0,downloadThroughput:0,uploadThroughput:0});
   await evaluate("document.querySelector('#title').value='Offline smoke task';document.querySelector('#add').requestSubmit()");
-  await until(()=>evaluate("document.querySelector('#tasks').textContent.includes('Offline smoke task')"));
+  try {
+    await until(()=>evaluate("document.querySelector('#tasks').textContent.includes('Offline smoke task')"));
+  } catch (error) {
+    const diagnostics = await evaluate("new Promise(resolve=>{const open=indexedDB.open('gharawi-todo');open.onsuccess=()=>{const get=open.result.transaction('state').objectStore('state').get('main');get.onsuccess=()=>resolve({status:document.querySelector('#status')?.textContent,tasks:document.querySelector('#tasks')?.textContent,title:document.querySelector('#title')?.value,state:get.result})}})");
+    throw new Error(`${error.message}; browser=${JSON.stringify(diagnostics)}; exceptions=${JSON.stringify(errors)}`);
+  }
+  await evaluate("document.querySelector('.task-name').click()");
+  await evaluate("document.querySelector('#priority').value='3';document.querySelector('#priority').dispatchEvent(new Event('input',{bubbles:true}));document.querySelector('#task-tags input').click();document.querySelector('#schedule').click();document.querySelector('#calendar [data-offset=\"1\"]').click();document.querySelector('#date-form').requestSubmit();document.querySelector('#edit').requestSubmit()");
+  await until(()=>evaluate("document.querySelector('#tasks').textContent.includes('High') && document.querySelector('#tasks').textContent.includes('Tomorrow') && document.querySelector('#tasks').textContent.includes('#Next')"));
+  await call('Emulation.setDeviceMetricsOverride',{width:1440,height:900,deviceScaleFactor:1,mobile:false});
+  await capture('desktop.png');
+  await call('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
+  await capture('mobile-detail.png');
+  await evaluate("document.querySelector('#close-detail').click()");
+  await capture('mobile-list.png');
+  await evaluate('window.__beforeOfflineReload = true');
   await call('Page.reload');
-  await until(()=>evaluate("document.querySelector('#tasks')?.textContent.includes('Offline smoke task')"));
+  await until(()=>evaluate("!window.__beforeOfflineReload && document.readyState === 'complete' && document.querySelector('#tasks')?.textContent.includes('Offline smoke task')"));
   await call('Network.emulateNetworkConditions', {offline:false,latency:0,downloadThroughput:-1,uploadThroughput:-1});
   await evaluate(`document.querySelector('#unlock input').value=${JSON.stringify(token)};document.querySelector('#unlock').requestSubmit()`);
-  await until(()=>evaluate("document.querySelector('#status').textContent.includes('synchronized')"));
+  try {
+    await until(()=>evaluate("document.querySelector('#status').textContent.includes('synchronized')"));
+  } catch (error) {
+    throw new Error(`${error.message}; status=${await evaluate("document.querySelector('#status').textContent")}; exceptions=${JSON.stringify(errors)}`);
+  }
   const snapshot = await request({cursor:0,changes:[]}).then(r=>r.json());
   assert.equal(snapshot.records[0].title, 'Offline smoke task');
+  assert.equal(snapshot.records[0].priority, 3);
+  assert.equal(snapshot.collections.length, 2);
   const stale = {...snapshot.records[0], title:'Remote change'};
   assert.equal((await request({cursor:snapshot.cursor,changes:[stale]})).status,200);
   const conflict = await request({cursor:snapshot.cursor,changes:[{...stale,title:'Stale local change'}]}).then(r=>r.json());
@@ -73,7 +104,7 @@ try {
   await evaluate("document.querySelector('[data-install]').click()");
   await until(()=>evaluate("document.querySelector('#install-help').open"));
   assert.deepEqual(errors,[]);
-  console.log('PASS: authenticated API, private files blocked, PWA shell, offline save/reload, reconnect sync, conflicts, responsive app, install fallback.');
+  console.log(`PASS: API, private files, PWA shell, collections, scheduling, offline save/reload, sync conflicts, responsive app, install fallback. Screenshots: ${scratch}`);
 } finally {
   socket?.close(); chrome?.kill(); server.kill();
 }

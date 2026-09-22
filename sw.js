@@ -1,5 +1,5 @@
-const CACHE = 'gharawi-shell-v1';
-const SHELL = ['/app/', '/app/app.js', '/app/app.css', '/install.js', '/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png'];
+const CACHE = 'gharawi-shell-v2';
+const SHELL = ['/app/', '/app/app.js', '/app/app.css', '/app/model.js', '/app/store.js', '/app/calendar.js', '/install.js', '/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png'];
 self.addEventListener('install', event => event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(SHELL))));
 self.addEventListener('activate', event => event.waitUntil((async () => {
   for (const key of await caches.keys()) if (key.startsWith('gharawi-shell-') && key !== CACHE) await caches.delete(key);

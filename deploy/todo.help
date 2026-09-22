@@ -10,7 +10,8 @@ todo - personal offline task app
   todo backup      create and integrity-check today's SQLite backup
   todo backups     list the retained daily backup files
 
-  Tasks, nested subtasks, notes, dates, priorities and private sync work.
+  Tasks, nested subtasks, colored lists, folders, tags, notes, dates,
+  priorities and private sync work on phone and desktop.
   Habits, scheduled reminders and a full focus workflow are not ready.
   Use the install button; on iPhone use Safari Share > Add to Home Screen.
 

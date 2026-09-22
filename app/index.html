@@ -1,28 +1,66 @@
 <!doctype html>
-<html lang="en"><head>
+<html lang="en">
+<head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#111720"><title>Your day · Todo</title>
+  <meta name="theme-color" content="#202123"><title>All tasks · Todo</title>
   <link rel="manifest" href="/manifest.webmanifest"><link rel="apple-touch-icon" href="/icons/icon-192.png">
   <link rel="stylesheet" href="/app/app.css">
-</head><body>
-  <header><a href="/">todo.gharawi.sa</a><button data-install>Install on this device</button></header>
-  <main>
-    <div class="heading"><div><p class="eyebrow">Your working copy</p><h1>A little forward.</h1></div><button id="connect">Connect private sync</button></div>
-    <p id="status" role="status">Opening your local tasks…</p>
-    <nav aria-label="Task views"><button data-view="all" aria-pressed="true">All tasks</button><button data-view="today" aria-pressed="false">Today</button><button data-view="week" aria-pressed="false">This week</button><button data-view="done" aria-pressed="false">Completed</button></nav>
-    <form id="add"><label class="sr-only" for="title">New task</label><input id="title" name="title" required maxlength="1000" placeholder="What needs doing?" autocomplete="off"><button>Add task</button></form>
-    <div class="toolbar"><label>Sort <select id="sort"><option value="due">Due time</option><option value="priority">Importance</option></select></label><button id="sync">Sync now</button><button id="export">Export backup</button></div>
-    <div id="tasks" aria-label="Tasks"></div>
-    <p class="hint">Tasks save on this device. Connect private sync to share them with your other devices. This first version includes tasks, nested subtasks, notes, and deadlines; habits and notifications are still being built.</p>
-  </main>
-  <dialog id="editor"><form method="dialog"><button class="close">Close</button></form><form id="edit">
-    <h2>Edit task</h2><label>Title<input name="title" required maxlength="1000"></label>
-    <label>Notes<textarea name="notes" rows="5" maxlength="32000"></textarea></label>
-    <label>Due date and time<input name="due" type="datetime-local"></label>
-    <label>Importance<select name="priority"><option value="0">None</option><option value="1">Low</option><option value="2">Medium</option><option value="3">High</option></select></label>
-    <button>Save changes</button>
-  </form></dialog>
-  <dialog id="connection"><form method="dialog"><button class="close">Close</button></form><h2>Your devices, connected.</h2><p>Enter the private sync token from your server. It stays in this tab’s session. The public website cannot access your tasks without it.</p><form id="unlock"><label>Private sync token<input name="token" type="password" required minlength="32" autocomplete="off"></label><button>Connect and sync</button></form><button id="lock">Lock sync</button></dialog>
-  <dialog id="install-help"><form method="dialog"><button class="close">Close</button></form><h2>Make room for your day.</h2><p>On iPhone: open this page in Safari, tap Share, then Add to Home Screen and enable Open as Web App if offered.</p><p>On Android: use your browser menu → Install app or Add to Home screen. On desktop, look for the install icon in the address bar.</p><p data-install-status>Installation needs HTTPS and a supported browser. Your tasks stay available offline after the app finishes its first load.</p></dialog>
+</head>
+<body>
+  <a class="skip" href="#title">Skip to add task</a>
+  <div class="workspace">
+    <aside id="navigation" aria-label="Workspace navigation">
+      <div class="brand"><a href="/">Todo<span>gharawi.sa</span></a><button id="close-nav" class="mobile-only" aria-label="Close navigation">×</button></div>
+      <nav id="views" aria-label="Task views"></nav>
+      <div class="nav-section"><h2>Folders & lists</h2><button data-create="list" aria-label="Create folder or list">+</button></div>
+      <div id="collections"></div>
+      <div class="nav-section"><h2>Tags</h2><button data-create="tag" aria-label="Create tag">+</button></div>
+      <nav id="tags" aria-label="Tags"></nav>
+      <div class="sidebar-footer"><button id="connect">⇄ <span>Sync settings</span></button><button data-install>Install app</button><button id="export">Export backup</button><a href="https://github.com/osamaE404/daily-tracking-todo" target="_blank" rel="noopener">Source & documentation</a></div>
+    </aside>
+    <main id="main">
+      <header class="list-header"><div class="heading"><button id="open-nav" class="mobile-only" aria-label="Open lists and views">☰ <span>Lists</span></button><h1 id="view-title">All tasks</h1><span id="view-count"></span></div><button id="edit-collection" hidden>Edit list</button><button id="sync" aria-label="Sync now">⇄ <span>Sync</span></button></header>
+      <div class="list-tools"><label class="search"><span class="sr-only">Search this view</span><input id="search" type="search" placeholder="Search this view" autocomplete="off"></label><label class="sort">Sort <select id="sort"><option value="due">Due date</option><option value="priority">Priority</option></select></label></div>
+      <form id="add"><label class="sr-only" for="title">New task</label><span aria-hidden="true">+</span><input id="title" name="title" required maxlength="1000" placeholder="Add a task to Inbox" autocomplete="off" dir="auto"><button type="submit">Add</button></form>
+      <div id="conflicts"></div>
+      <div id="tasks" aria-label="Tasks"></div>
+      <footer class="list-footer"><p id="status" role="status">Opening your local tasks…</p><span>Local first</span></footer>
+    </main>
+    <aside id="details" aria-label="Task details">
+      <div id="detail-empty"><span class="empty-check" aria-hidden="true">✓</span><h2>A place for the details</h2><p>Select a task to set its date, priority, list and tags.</p><p class="muted">Your notes stay with the task.</p></div>
+      <form id="edit" hidden>
+        <div class="detail-header"><button type="button" id="close-detail" aria-label="Close task details">← <span>Back</span></button><span id="detail-state">Task details</span><button type="button" id="pin" aria-pressed="false">Pin</button></div>
+        <div class="detail-body">
+          <label class="sr-only" for="edit-title">Task title</label><textarea id="edit-title" name="title" rows="2" required maxlength="1000" placeholder="Task title" dir="auto"></textarea>
+          <div class="schedule-row"><button type="button" id="schedule">▦ <span>No date</span></button><label class="sr-only" for="priority">Priority</label><select id="priority" name="priority"><option value="0">⚑ No priority</option><option value="1">⚑ Low</option><option value="2">⚑ Medium</option><option value="3">⚑ High</option></select></div>
+          <label class="field">List<select name="list_id" id="task-list"></select></label>
+          <fieldset class="tag-picker"><legend>Tags</legend><div id="task-tags"></div><button type="button" data-create="tag">+ New tag</button></fieldset>
+          <label class="field notes">Notes<textarea name="notes" rows="7" maxlength="32000" placeholder="Add the context you want to keep…" dir="auto"></textarea></label>
+          <div class="subtasks-header"><h2>Subtasks</h2><button type="button" id="add-subtask">+ Add subtask</button></div><div id="detail-subtasks"></div>
+        </div>
+        <div class="detail-footer"><span id="edit-status" role="status">No unsaved changes</span><button type="submit" class="primary">Save changes</button></div>
+      </form>
+    </aside>
+  </div>
+  <nav class="bottom-nav" aria-label="Quick views"><button data-view="today">☀<span>Today</span></button><button data-view="tomorrow">↗<span>Tomorrow</span></button><button data-view="week">▦<span>7 days</span></button><button id="bottom-lists">☰<span>Lists</span></button></nav>
+  <dialog id="collection-dialog" aria-labelledby="collection-heading">
+    <form method="dialog" class="dialog-top"><h2 id="collection-heading">New list</h2><button aria-label="Close collection editor">×</button></form>
+    <form id="collection-form"><label class="field">Type<select name="kind"><option value="list">List</option><option value="folder">Folder</option><option value="tag">Tag</option></select></label><label class="field">Name<input name="title" required maxlength="100" autocomplete="off" dir="auto"></label><label class="field" id="folder-field">Folder<select name="parent"></select></label><fieldset><legend>Color</legend><div id="color-options"></div></fieldset><button class="primary">Save</button></form>
+  </dialog>
+  <dialog id="calendar" aria-labelledby="calendar-title">
+    <form method="dialog" class="dialog-top"><h2 id="calendar-title">Schedule task</h2><button aria-label="Close calendar">×</button></form>
+    <form id="date-form">
+      <div class="date-shortcuts"><button type="button" data-offset="0">☀<span>Today</span></button><button type="button" data-offset="1">↗<span>Tomorrow</span></button><button type="button" data-offset="7">▦<span>In 7 days</span></button></div>
+      <div class="month-nav"><button type="button" id="previous-month" aria-label="Previous month">‹</button><h3 id="month-label" aria-live="polite"></h3><button type="button" id="next-month" aria-label="Next month">›</button></div>
+      <div class="weekdays" aria-hidden="true"><span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span></div><div id="calendar-days" role="group" aria-label="Choose a date"></div>
+      <label class="field">Date<input id="date-value" type="date" required></label><label class="field">Time <span class="muted">Optional · your local time</span><input id="time-value" type="time"></label>
+      <p class="calendar-note">Repeats and reminder notifications are not available in this version.</p>
+      <div class="dialog-actions"><button type="button" id="clear-date">Clear date</button><button class="primary">Apply date</button></div>
+    </form>
+  </dialog>
+  <dialog id="subtask-dialog" aria-labelledby="subtask-heading"><form method="dialog" class="dialog-top"><h2 id="subtask-heading">New subtask</h2><button aria-label="Close new subtask">×</button></form><form id="subtask-form"><label class="field">Title<input name="title" required maxlength="1000" dir="auto"></label><button class="primary">Add subtask</button></form></dialog>
+  <dialog id="connection" aria-labelledby="connection-title"><form method="dialog" class="dialog-top"><h2 id="connection-title">Private sync</h2><button aria-label="Close sync settings">×</button></form><p>Use the same private token on each device. It stays in this browser session.</p><form id="unlock"><label class="field">Private sync token<input name="token" type="password" required minlength="32" autocomplete="off"></label><button class="primary">Connect and sync</button></form><button id="lock">Lock sync on this device</button><p class="muted">Locking sync does not erase local tasks. Protect this device with a screen lock.</p></dialog>
+  <dialog id="install-help"><form method="dialog" class="dialog-top"><h2>Install Todo</h2><button aria-label="Close installation help">×</button></form><p>On iPhone: open in Safari, tap Share, then Add to Home Screen.</p><p>On Android: use the browser menu, then Install app or Add to Home screen. On desktop, look for the install icon in the address bar.</p><p data-install-status>Your tasks work offline after the first complete load.</p></dialog>
   <script type="module" src="/app/app.js"></script><script type="module" src="/install.js"></script>
-</body></html>
+</body>
+</html>

@@ -2,7 +2,7 @@
 
 An open-source, offline-first task system for daily and weekly planning, deep task trees, habits, and focus.
 
-The first personal-use version includes an installable offline task app and a Rust/SQLite synchronization service. Habits, reminders, and a production focus tracker are still planned. The landing-page focus timer is a demonstration.
+The current personal-use version includes an installable offline task app and a Rust/SQLite synchronization service. It has responsive phone and desktop layouts, colored lists grouped in folders, tags, priorities, task trees, notes, and local date/time scheduling. Habits, recurrence, reminder delivery, and a production focus tracker are still planned. The landing-page focus timer is a demonstration.
 
 ## Why it exists
 
@@ -34,7 +34,7 @@ bun run dev
 
 Then open the URL printed by Bun.
 
-The page uses HTML, CSS, and a small dependency-free JavaScript module for the interactive tree demonstration. It has no framework, runtime dependencies, analytics, or external font requests.
+The page and application use semantic HTML, CSS, and dependency-free JavaScript modules. There is no frontend framework, analytics, or external font request.
 
 For the complete app and backend:
 
