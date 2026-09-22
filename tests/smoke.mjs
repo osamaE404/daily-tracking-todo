@@ -21,7 +21,7 @@ try {
   assert.equal((await fetch(`${base}/.env`)).status, 404);
   assert.equal((await fetch(`${base}/src/main.rs`)).status, 404);
   assert.equal((await fetch(`${base}/manifest.webmanifest`).then(r=>r.json())).start_url, '/app/');
-  chrome = Bun.spawn(['google-chrome-stable', '--headless=new', '--no-sandbox', '--disable-gpu', '--remote-debugging-port=19227', `--user-data-dir=${join(scratch, 'chrome')}`, `${base}/app/`], {stdout:'ignore',stderr:'ignore'});
+  chrome = Bun.spawn(['google-chrome-stable', '--headless=new', '--no-sandbox', '--disable-gpu', '--disable-features=DesktopPWAs', '--remote-debugging-port=19227', `--user-data-dir=${join(scratch, 'chrome')}`, `${base}/app/`], {stdout:'ignore',stderr:'ignore'});
   await until(async () => (await fetch('http://127.0.0.1:19227/json')).ok);
   const pages = await fetch('http://127.0.0.1:19227/json').then(r=>r.json());
   const page = pages.find(page=>page.type === 'page');
@@ -51,16 +51,25 @@ try {
   };
   await call('Runtime.enable'); await call('Network.enable');
   await until(()=>evaluate("document.querySelector('#status')?.textContent.includes('Ready')"));
-  assert.equal(await evaluate("new URL(document.querySelector('link[rel=stylesheet]').href).search"), '?v=6');
+  assert.equal(await evaluate("new URL(document.querySelector('link[rel=stylesheet]').href).search"), '?v=8');
   assert.equal(await evaluate("getComputedStyle(document.querySelector('.skip')).transform !== 'none'"), true, 'app shell must not render without its current stylesheet');
   await evaluate('navigator.serviceWorker.ready.then(() => true)');
   await evaluate('window.__beforeSmokeReload = true');
   await call('Page.reload');
   await until(()=>evaluate("!window.__beforeSmokeReload && document.readyState === 'complete' && Boolean(navigator.serviceWorker.controller) && document.querySelector('#status')?.textContent.includes('Ready')"));
+  assert.equal(await evaluate("document.querySelector('#sync').dataset.syncState"), 'disconnected');
+  await evaluate("document.querySelector('#sync').click()");
+  assert.equal(await evaluate("document.querySelector('#connection').open"), true);
+  await evaluate("document.querySelector('#connection').close();document.querySelector('#toggle-collections').click()");
+  assert.equal(await evaluate("document.querySelector('#collections').hidden && document.querySelector('#toggle-collections').getAttribute('aria-expanded') === 'false'"), true);
+  await evaluate("document.querySelector('#toggle-collections').click()");
   await evaluate("document.querySelector('[data-create=list]').click();document.querySelector('#collection-form [name=title]').value='Work';document.querySelector('#collection-form').requestSubmit()");
   await until(()=>evaluate("document.querySelector('#collections').textContent.includes('Work')"));
   await evaluate("document.querySelector('[data-create=tag]').click();document.querySelector('#collection-form [name=title]').value='Next';document.querySelector('#collection-form').requestSubmit()");
   await until(()=>evaluate("document.querySelector('#tags').textContent.includes('Next')"));
+  await evaluate("document.querySelector('#toggle-tags').click()");
+  assert.equal(await evaluate("document.querySelector('#tags').hidden && document.querySelector('#toggle-tags').getAttribute('aria-expanded') === 'false'"), true);
+  await evaluate("document.querySelector('#toggle-tags').click()");
   await evaluate("[...document.querySelectorAll('#collections .nav-item')].find(node=>node.textContent.includes('Work')).click()");
   await call('Network.emulateNetworkConditions', {offline:true,latency:0,downloadThroughput:0,uploadThroughput:0});
   await evaluate("document.querySelector('#title').value='Offline smoke task';document.querySelector('#add').requestSubmit()");
@@ -71,8 +80,10 @@ try {
     throw new Error(`${error.message}; browser=${JSON.stringify(diagnostics)}; exceptions=${JSON.stringify(errors)}`);
   }
   await evaluate("document.querySelector('.task-name').click()");
-  await evaluate("document.querySelector('#priority').value='3';document.querySelector('#priority').dispatchEvent(new Event('input',{bubbles:true}));document.querySelector('#task-tags input').click();document.querySelector('#schedule').click();document.querySelector('#calendar [data-offset=\"1\"]').click();document.querySelector('#date-form').requestSubmit();document.querySelector('#repeat').click();document.querySelector('#repeat-form [name=interval]').value='3';document.querySelector('#repeat-form').requestSubmit();document.querySelector('#reminder').click();document.querySelector('#reminder-form [name=minutes]').value='-30';document.querySelector('#reminder-form').requestSubmit();document.querySelector('#reminder-dialog').close();document.querySelector('#edit').requestSubmit()");
-  await until(()=>evaluate("document.querySelector('#tasks').textContent.includes('High') && document.querySelector('#tasks').textContent.includes('Tomorrow') && document.querySelector('#tasks').textContent.includes('#Next') && document.querySelector('#tasks').textContent.includes('Every 3 days') && document.querySelector('#tasks').textContent.includes('◷ 1')"));
+  await evaluate("document.querySelector('#priority').value='3';document.querySelector('#priority').dispatchEvent(new Event('input',{bubbles:true}));document.querySelector('#task-tags input').click();document.querySelector('#schedule').click();document.querySelector('#calendar [name=mode][value=duration]').click();document.querySelector('#calendar [data-offset=\"1\"]').click();document.querySelector('#start-value').value=document.querySelector('#date-value').value.replace(/.$/,'9');document.querySelector('#date-form').requestSubmit()");
+  assert.equal(await evaluate("document.querySelector('#start-value').validationMessage.includes('on or before') && document.querySelector('#calendar').open"), true);
+  await evaluate("document.querySelector('#start-value').value=new Date().toISOString().slice(0,10);document.querySelector('#start-value').dispatchEvent(new Event('input'));document.querySelector('#date-form').requestSubmit();document.querySelector('#repeat').click();document.querySelector('#repeat-form [name=interval]').value='3';document.querySelector('#repeat-form').requestSubmit();document.querySelector('#reminder').click();document.querySelector('#reminder-form [name=minutes]').value='-30';document.querySelector('#reminder-form').requestSubmit();document.querySelector('#reminder-dialog').close();document.querySelector('#edit').requestSubmit()");
+  await until(()=>evaluate("document.querySelector('#tasks').textContent.includes('High') && document.querySelector('#tasks').textContent.includes('Today to Tomorrow') && document.querySelector('#tasks').textContent.includes('#Next') && document.querySelector('#tasks').textContent.includes('Every 3 days') && document.querySelector('#tasks').textContent.includes('◷ 1')"));
   await call('Emulation.setDeviceMetricsOverride',{width:1440,height:900,deviceScaleFactor:1,mobile:false});
   await capture('desktop.png');
   await call('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
@@ -87,7 +98,7 @@ try {
   await call('Network.emulateNetworkConditions', {offline:false,latency:0,downloadThroughput:-1,uploadThroughput:-1});
   await evaluate(`document.querySelector('#unlock input').value=${JSON.stringify(token)};document.querySelector('#unlock').requestSubmit()`);
   try {
-    await until(()=>evaluate("document.querySelector('#status').textContent.includes('synchronized')"));
+    await until(()=>evaluate("document.querySelector('#status').textContent.includes('synchronized') && document.querySelector('#sync').dataset.syncState === 'connected'"));
   } catch (error) {
     throw new Error(`${error.message}; status=${await evaluate("document.querySelector('#status').textContent")}; exceptions=${JSON.stringify(errors)}`);
   }
@@ -101,6 +112,10 @@ try {
   assert.equal((await request({cursor:snapshot.cursor,changes:[stale]})).status,200);
   const conflict = await request({cursor:snapshot.cursor,changes:[{...stale,title:'Stale local change'}]}).then(r=>r.json());
   assert.equal(conflict.conflicts.length,1);
+  await evaluate("document.querySelector('#connect').click();document.querySelector('#lock').click()");
+  assert.equal(await evaluate("document.querySelector('#sync').dataset.syncState"), 'disconnected');
+  await evaluate(`document.querySelector('#unlock input').value='wrong-token-that-is-long-enough-for-the-form';document.querySelector('#unlock').requestSubmit()`);
+  await until(()=>evaluate("document.querySelector('#sync').dataset.syncState === 'error'"));
   for (const width of [390, 768, 1440]) {
     await call('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:width===390});
     assert.equal(await evaluate('document.documentElement.scrollWidth <= innerWidth'),true,`overflow at ${width}`);

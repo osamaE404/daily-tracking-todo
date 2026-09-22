@@ -1,7 +1,8 @@
-import { dayOffset, localDate } from './model.js?v=6';
+import { dayOffset, localDate } from './model.js?v=8';
 
 export function createCalendar(onApply) {
   const dialog = document.querySelector('#calendar');
+  const start = document.querySelector('#start-value');
   const input = document.querySelector('#date-value');
   const time = document.querySelector('#time-value');
   const days = document.querySelector('#calendar-days');
@@ -32,7 +33,20 @@ export function createCalendar(onApply) {
   input.onchange = () => { if (input.value) month = new Date(`${input.value}T12:00`); render(); };
   for (const [id, amount] of [['previous-month', -1], ['next-month', 1]]) document.getElementById(id).onclick = () => { month.setDate(1); month.setMonth(month.getMonth() + amount); render(); };
   dialog.querySelectorAll('[data-offset]').forEach(button => button.onclick = () => { input.value = dayOffset(Number(button.dataset.offset)); month = new Date(`${input.value}T12:00`); render(); });
-  document.querySelector('#date-form').onsubmit = event => { event.preventDefault(); onApply(input.value + (time.value ? `T${time.value}` : '')); dialog.close(); };
-  document.querySelector('#clear-date').onclick = () => { onApply(''); dialog.close(); };
-  return due => { input.value = due.slice(0, 10); time.value = due.slice(11, 16); month = due ? new Date(`${input.value}T12:00`) : new Date(); render(); dialog.showModal(); };
+  const form = document.querySelector('#date-form');
+  start.oninput = () => start.setCustomValidity('');
+  const setMode = mode => {
+    form.elements.mode.value = mode;
+    document.querySelector('#start-field').hidden = mode !== 'duration';
+    document.querySelector('#date-label').textContent = mode === 'duration' ? 'End date' : 'Date';
+    document.querySelector('#time-label').textContent = mode === 'duration' ? 'End time' : 'Time';
+  };
+  form.elements.mode.forEach(option => option.onchange = () => setMode(option.value));
+  form.onsubmit = event => {
+    event.preventDefault();
+    if (form.elements.mode.value === 'duration' && (!start.value || start.value > input.value)) { start.setCustomValidity('Choose a start date on or before the end date.'); start.reportValidity(); return; }
+    start.setCustomValidity(''); onApply(form.elements.mode.value === 'duration' ? start.value : '', input.value + (time.value ? `T${time.value}` : '')); dialog.close();
+  };
+  document.querySelector('#clear-date').onclick = () => { onApply('', ''); dialog.close(); };
+  return (from, due) => { start.value = from.slice(0, 10); input.value = due.slice(0, 10); time.value = due.slice(11, 16); setMode(from ? 'duration' : 'date'); month = due ? new Date(`${input.value}T12:00`) : new Date(); render(); dialog.showModal(); };
 }

@@ -13,12 +13,12 @@ export function normalize(stored) {
   const state = stored || { cursor: 0, tasks: {}, pending: {}, conflicts: {} };
   state.collections ||= {}; state.pendingCollections ||= {}; state.collectionConflicts ||= {};
   for (const task of Object.values(state.tasks)) {
-    task.list_id ??= null; task.tags ||= []; task.pinned ??= false; task.repeat ??= null; task.series_source ??= null; task.reminders ||= []; task.completed_at ||= '';
+    task.start ||= ''; task.list_id ??= null; task.tags ||= []; task.pinned ??= false; task.repeat ??= null; task.series_source ??= null; task.reminders ||= []; task.completed_at ||= '';
   }
   return state;
 }
 export function newTask(title, fields = {}) {
-  return { id: crypto.randomUUID(), title: title.trim(), notes: '', due: '', priority: 0, parent: null,
+  return { id: crypto.randomUUID(), title: title.trim(), notes: '', start: '', due: '', priority: 0, parent: null,
     done: false, completed_at: '', deleted: false, revision: 0, list_id: null, tags: [], pinned: false, repeat: null, series_source: null, reminders: [], ...fields };
 }
 export function repeatLabel(repeat) {
@@ -55,19 +55,27 @@ export function nextOccurrence(task) {
   const nextDate = localDate(current);
   if (repeat.end && nextDate > repeat.end) return null;
   const base = task.id.split('@')[0];
-  return { ...structuredClone(task), id: `${base}@${nextDate}`, due: nextDate + task.due.slice(10), done: false, completed_at: '', deleted: false, revision: 0, parent: task.parent, series_source: task.id };
+  let start = task.start;
+  if (start) {
+    const shifted = new Date(`${start.slice(0, 10)}T12:00`);
+    if (repeat.unit === 'month') shifted.setMonth(shifted.getMonth() + repeat.interval);
+    else if (repeat.unit === 'year') shifted.setFullYear(shifted.getFullYear() + repeat.interval);
+    else shifted.setDate(shifted.getDate() + Math.round((new Date(`${nextDate}T12:00`) - new Date(`${date}T12:00`)) / 86400000));
+    start = localDate(shifted) + start.slice(10);
+  }
+  return { ...structuredClone(task), id: `${base}@${nextDate}`, start, due: nextDate + task.due.slice(10), done: false, completed_at: '', deleted: false, revision: 0, parent: task.parent, series_source: task.id };
 }
 export function matches(task, view, collections, today = new Date()) {
   if (task.deleted) return false;
   if (view === 'done') return task.done;
   if (task.done) return false;
-  const date = task.due.slice(0, 10);
+  const date = task.due.slice(0, 10), start = task.start.slice(0, 10);
   switch (view) {
     case 'all': return true;
     case 'inbox': return !task.list_id;
-    case 'today': return Boolean(date && date <= localDate(today));
-    case 'tomorrow': return date === dayOffset(1, today);
-    case 'week': return Boolean(date && date <= dayOffset(6, today));
+    case 'today': return Boolean(date && date <= localDate(today)) || Boolean(start && start <= localDate(today) && localDate(today) <= date);
+    case 'tomorrow': return date === dayOffset(1, today) || Boolean(start && start <= dayOffset(1, today) && dayOffset(1, today) <= date);
+    case 'week': return Boolean(date && date <= dayOffset(6, today)) || Boolean(start && start <= dayOffset(6, today));
   }
   const collection = collections[view];
   if (collection?.kind === 'tag') return task.tags.includes(view);
@@ -81,6 +89,9 @@ export function dueLabel(due, today = new Date()) {
     : new Date(`${date}T12:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: Number(date.slice(0, 4)) !== today.getFullYear() ? 'numeric' : undefined });
   if (due.includes('T')) label += `, ${due.slice(11, 16)}`;
   return label;
+}
+export function scheduleLabel(start, due, today = new Date()) {
+  return start ? `${dueLabel(start, today)} to ${dueLabel(due, today)}` : dueLabel(due, today);
 }
 export function isOverdue(task) {
   return !task.done && Boolean(task.due) && (task.due.length === 10 ? task.due < localDate() : new Date(task.due) < new Date());

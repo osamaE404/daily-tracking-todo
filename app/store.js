@@ -1,6 +1,6 @@
-import { normalize } from './model.js?v=6';
+import { normalize } from './model.js?v=8';
 
-export async function openStore(onChange, status) {
+export async function openStore(onChange, status, connection = () => {}) {
   const request = indexedDB.open('gharawi-todo', 1);
   request.onupgradeneeded = () => request.result.createObjectStore('state');
   const db = await new Promise((resolve, reject) => { request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error); });
@@ -8,6 +8,7 @@ export async function openStore(onChange, status) {
   let token = sessionStorage.getItem('todo-sync-token') || '';
   let queue = Promise.resolve();
   let state = await read();
+  connection(token ? 'syncing' : 'disconnected', token ? 'Checking the server connection…' : 'This device is not connected.', Boolean(token));
   function read() {
     return new Promise((resolve, reject) => {
       const get = db.transaction('state').objectStore('state').get('main');
@@ -28,8 +29,9 @@ export async function openStore(onChange, status) {
   }
   channel.onmessage = () => run(async () => onChange(state)).catch(() => {});
   async function synchronize() {
-    if (!token) { status('Saved on this device. Connect sync to share with your other devices.'); return; }
-    await run(async () => {
+    if (!token) { connection('disconnected', 'This device is not connected.', false); status('Saved on this device. Connect sync to share with your other devices.'); return; }
+    connection('syncing', 'Checking the server connection…', true);
+    try { await run(async () => {
       // One lock across the request prevents another tab from overwriting the snapshot.
       let more;
       do {
@@ -55,18 +57,20 @@ export async function openStore(onChange, status) {
       } while (more);
       const count = Object.keys(state.pending).length + Object.keys(state.pendingCollections).length;
       status(count ? `${count} change(s) need attention. Review sync conflicts below.` : 'Saved on this device and synchronized.');
-    });
+      connection(count ? 'error' : 'connected', count ? `${count} change(s) could not synchronize.` : 'Connected. All changes are synchronized.', true);
+    }); } catch (error) { connection('error', error.message, true); throw error; }
   }
   async function update(mutate) {
     await run(async () => {
       const next = structuredClone(state); mutate(next); await save(next); status('Saved on this device.');
     });
     if (token && navigator.onLine) synchronize().catch(() => {});
+    else if (token) connection('error', 'Offline. Local changes are safe but not synchronized.', true);
   }
   return {
-    get state() { return state; }, update, synchronize,
-    connect(value) { token = value; sessionStorage.setItem('todo-sync-token', token); return synchronize(); },
-    lock() { token = ''; sessionStorage.removeItem('todo-sync-token'); status('Sync locked. Local tasks stay on this device.'); },
+    get state() { return state; }, get hasToken() { return Boolean(token); }, update, synchronize,
+    connect(value) { token = value; sessionStorage.setItem('todo-sync-token', token); connection('syncing', 'Checking the server connection…', true); return synchronize(); },
+    lock() { token = ''; sessionStorage.removeItem('todo-sync-token'); connection('disconnected', 'This device is not connected. Local tasks remain on this device.', false); status('Sync disconnected. Local tasks stay on this device.'); },
     async resolve(id, collection, useServer) {
       await update(next => {
         const values = collection ? 'collections' : 'tasks', conflicts = collection ? 'collectionConflicts' : 'conflicts', pending = collection ? 'pendingCollections' : 'pending';

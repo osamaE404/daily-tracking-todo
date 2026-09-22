@@ -2,7 +2,7 @@
 
 An open-source, offline-first task system for daily and weekly planning, deep task trees, habits, and focus.
 
-The current personal-use version includes an installable offline task app and a Rust/SQLite synchronization service. It has responsive phone and desktop layouts, colored lists grouped in folders, tags, priorities, task trees, notes, local date/time scheduling, multi-day recurrence, and reminders. Browser reminders currently fire while Todo is open; closed-app delivery still needs Web Push. Habits and a production focus tracker are planned. The landing-page focus timer is a demonstration.
+The current personal-use version includes an installable offline task app and a Rust/SQLite synchronization service. It has responsive phone and desktop layouts, collapsible colored lists and tags, priorities, task trees, notes, deadlines and multi-day durations, recurrence, reminders, completion history, and explicit synchronization status. Browser reminders currently fire while Todo is open; closed-app delivery still needs Web Push. Habits and a production focus tracker are planned. The landing-page focus timer is a demonstration.
 
 ## Why it exists
 

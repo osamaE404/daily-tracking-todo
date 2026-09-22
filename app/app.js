@@ -1,14 +1,19 @@
-import { COLORS, PRIORITIES, VIEWS, dayOffset, dueLabel, isOverdue, localDate, matches, newTask, nextOccurrence, repeatLabel, taskRows } from './model.js?v=6';
-import { openStore } from './store.js?v=6';
-import { createCalendar } from './calendar.js?v=6';
-import { enableNotifications, reminderLabel, startReminderChecks } from './reminders.js?v=6';
+import { COLORS, PRIORITIES, VIEWS, dayOffset, isOverdue, localDate, matches, newTask, nextOccurrence, repeatLabel, scheduleLabel, taskRows } from './model.js?v=8';
+import { openStore } from './store.js?v=8';
+import { createCalendar } from './calendar.js?v=8';
+import { enableNotifications, reminderLabel, startReminderChecks } from './reminders.js?v=8';
 
 const $ = selector => document.querySelector(selector);
 const status = message => { $('#status').textContent = message; };
 const attempt = action => Promise.resolve().then(action).catch(error => status(error.message));
 let state, view = 'all', selected, draft, original, dirty = false, collectionEditing, subtaskParent, completedVisible = 200;
-const collapsed = new Set(), collapsedFolders = new Set();
-const store = await openStore(next => { state = next; render(); }, status).catch(error => {
+const collapsed = new Set(), collapsedFolders = new Set(), collapsedSections = new Set(JSON.parse(localStorage.getItem('todo-collapsed-sections') || '[]'));
+function setSyncState(mode, message, hasToken = mode !== 'disconnected') {
+  const values = { connected: ['✓', 'Synced', 'Synced'], syncing: ['…', 'Syncing', 'Syncing'], error: ['!', 'Sync error', 'Error'], disconnected: ['○', 'Sync disconnected', 'Offline'] }[mode];
+  for (const [node, label] of [[$('#connect'), values[1]], [$('#sync'), values[2]]]) { node.dataset.syncState = mode; node.querySelector('.sync-mark').textContent = values[0]; node.querySelector('.sync-label').textContent = label; node.setAttribute('aria-label', `${values[1]}. ${message}`); }
+  $('#connection-state').dataset.syncState = mode; $('#connection-state').textContent = message; $('#lock').hidden = !hasToken;
+}
+const store = await openStore(next => { state = next; render(); }, status, setSyncState).catch(error => {
   status('Cannot open device storage. Enable browser storage and reload before adding tasks.'); throw error;
 });
 state = store.state;
@@ -42,6 +47,10 @@ function navItem(id, name, icon, color) {
   node.append(element('span', 'nav-icon', icon), element('span', 'nav-title', name), element('span', 'count', count(id)));
   return node;
 }
+function toggleSection(id) {
+  collapsedSections.has(id) ? collapsedSections.delete(id) : collapsedSections.add(id);
+  localStorage.setItem('todo-collapsed-sections', JSON.stringify([...collapsedSections])); renderNavigation();
+}
 function renderNavigation() {
   const icons = { all: '▤', today: '☀', tomorrow: '↗', week: '▦', inbox: '▱', done: '✓' };
   $('#views').replaceChildren(...Object.entries(VIEWS).map(([id, name]) => navItem(id, name, icons[id])));
@@ -59,8 +68,10 @@ function renderNavigation() {
   }
   for (const item of collections('list').filter(item => !item.parent)) list.append(navItem(item.id, item.title, '▤', item.color));
   if (!list.children.length) list.append(element('p', 'nav-hint', 'Create a list for an area of your life. Use folders to group lists.'));
+  list.hidden = collapsedSections.has('collections'); $('#toggle-collections').setAttribute('aria-expanded', String(!list.hidden)); $('#toggle-collections span').textContent = list.hidden ? '›' : '⌄';
   $('#tags').replaceChildren(...collections('tag').map(tag => navItem(tag.id, tag.title, '#', tag.color)));
   if (!collections('tag').length) $('#tags').append(element('p', 'nav-hint', 'Tags connect tasks across lists.'));
+  $('#tags').hidden = collapsedSections.has('tags'); $('#toggle-tags').setAttribute('aria-expanded', String(!$('#tags').hidden)); $('#toggle-tags span').textContent = $('#tags').hidden ? '›' : '⌄';
   document.querySelectorAll('.bottom-nav [data-view]').forEach(node => node.setAttribute('aria-current', node.dataset.view === view ? 'page' : 'false'));
 }
 function checkTask(task) {
@@ -88,7 +99,7 @@ function row({ task, depth = 0, count = 0, context = false }) {
   const meta = element('span', 'task-meta');
   if (task.pinned) meta.append(element('span', '', 'Pinned'));
   if (task.priority) meta.append(element('span', 'priority-label', PRIORITIES[task.priority]));
-  if (task.due) meta.append(element('span', `due${isOverdue(task) ? ' overdue' : ''}`, `${isOverdue(task) ? 'Overdue · ' : ''}${dueLabel(task.due)}`));
+  if (task.due) meta.append(element('span', `due${isOverdue(task) ? ' overdue' : ''}`, `${isOverdue(task) ? 'Overdue · ' : ''}${scheduleLabel(task.start, task.due)}`));
   if (task.done && task.completed_at) meta.append(element('span', '', `Completed ${new Date(task.completed_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`));
   if (task.repeat) meta.append(element('span', '', `↻ ${repeatLabel(task.repeat)}`));
   if (task.reminders.length) meta.append(element('span', '', `◷ ${task.reminders.length}`));
@@ -157,7 +168,7 @@ function renderSubtasks() {
   $('#detail-subtasks').replaceChildren(...Object.values(state.tasks).filter(task => !task.deleted && task.parent === selected).map(task => row({ task })));
 }
 function updateDraftControls() {
-  $('#schedule span').textContent = dueLabel(draft.due);
+  $('#schedule span').textContent = scheduleLabel(draft.start, draft.due);
   $('#repeat span').textContent = repeatLabel(draft.repeat);
   $('#reminder span').textContent = draft.reminders.length ? `${draft.reminders.length} reminder${draft.reminders.length === 1 ? '' : 's'}` : 'No reminder';
   $('#priority').dataset.priority = $('#priority').value;
@@ -202,16 +213,16 @@ function openCollection(kind, item) {
   $('#collection-dialog').showModal(); form.elements.title.focus();
 }
 
-const showCalendar = createCalendar(due => {
+const showCalendar = createCalendar((start, due) => {
   const dateChanged = draft.due.slice(0, 10) !== due.slice(0, 10);
-  draft.due = due;
+  draft.start = start; draft.due = due;
   if (!due) draft.repeat = null;
   else if (dateChanged && draft.repeat) draft.repeat.anchor = due.slice(0, 10);
   markDirty();
 });
-$('#schedule').onclick = () => showCalendar(draft.due);
+$('#schedule').onclick = () => showCalendar(draft.start, draft.due);
 $('#repeat').onclick = () => {
-  if (!draft.due) { $('#edit-status').textContent = 'Choose a date before adding a repeat.'; showCalendar(''); return; }
+  if (!draft.due) { $('#edit-status').textContent = 'Choose a date before adding a repeat.'; showCalendar('', ''); return; }
   const form = $('#repeat-form'), repeat = draft.repeat || { unit: 'day', interval: 1, end: '', anchor: draft.due.slice(0, 10) };
   form.elements.unit.value = repeat.unit; form.elements.interval.value = repeat.interval; form.elements.end.value = repeat.end;
   form.querySelectorAll('[name="weekday"]').forEach(input => { input.checked = (repeat.weekdays || []).includes(Number(input.value)); });
@@ -236,7 +247,7 @@ function renderReminders() {
   if (!draft.reminders.length) list.append(element('p', 'muted', 'No reminders for this task.'));
 }
 $('#reminder').onclick = () => {
-  if (!draft.due) { $('#edit-status').textContent = 'Choose a date before adding a reminder.'; showCalendar(''); return; }
+  if (!draft.due) { $('#edit-status').textContent = 'Choose a date before adding a reminder.'; showCalendar('', ''); return; }
   renderReminders(); $('#reminder-dialog').showModal();
 };
 $('#reminder-form').onsubmit = event => {
@@ -250,7 +261,7 @@ $('#edit').oninput = markDirty;
 $('#edit').onsubmit = event => {
   event.preventDefault(); const form = event.target; const id = selected;
   const fields = { title: form.elements.title.value.trim(), notes: form.elements.notes.value, priority: Number(form.elements.priority.value), list_id: form.elements.list_id.value || null,
-    tags: [...form.querySelectorAll('[name="tags"]:checked')].map(input => input.value), due: draft.due, pinned: draft.pinned, repeat: draft.repeat, reminders: draft.reminders };
+    tags: [...form.querySelectorAll('[name="tags"]:checked')].map(input => input.value), start: draft.start, due: draft.due, pinned: draft.pinned, repeat: draft.repeat, reminders: draft.reminders };
   const baseline = structuredClone(original);
   attempt(async () => {
     if (!fields.title) throw new Error('Give the task a title before saving.');
@@ -281,6 +292,7 @@ $('#subtask-form').onsubmit = event => {
   attempt(async () => { await addTask(title, subtaskParent); collapsed.delete(subtaskParent); $('#subtask-dialog').close(); render(); });
 };
 document.querySelectorAll('[data-create]').forEach(node => node.onclick = () => openCollection(node.dataset.create));
+$('#toggle-collections').onclick = () => toggleSection('collections'); $('#toggle-tags').onclick = () => toggleSection('tags');
 $('#edit-collection').onclick = () => openCollection('', state.collections[view]);
 $('#collection-form').elements.kind.onchange = event => { $('#folder-field').hidden = event.target.value !== 'list'; };
 $('#collection-form').onsubmit = event => {
@@ -299,13 +311,14 @@ document.querySelectorAll('.bottom-nav [data-view]').forEach(node => node.onclic
 $('#search').oninput = render; $('#sort').onchange = render;
 $('#connect').onclick = () => $('#connection').showModal();
 $('#unlock').onsubmit = event => { event.preventDefault(); const token = event.target.elements.token.value; event.target.reset(); $('#connection').close(); attempt(() => store.connect(token)); };
-$('#lock').onclick = () => { store.lock(); $('#connection').close(); };
-$('#sync').onclick = () => attempt(() => store.synchronize());
+$('#lock').onclick = () => store.lock();
+$('#sync').onclick = () => store.hasToken ? attempt(() => store.synchronize()) : $('#connection').showModal();
 $('#export').onclick = () => {
   const url = URL.createObjectURL(new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' }));
   const anchor = document.createElement('a'); anchor.href = url; anchor.download = `todo-${localDate()}.json`; anchor.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
 };
 addEventListener('online', () => attempt(() => store.synchronize()));
+addEventListener('offline', () => { if (store.hasToken) setSyncState('error', 'Offline. Local changes are safe but not synchronized.', true); });
 addEventListener('beforeunload', event => { if (dirty) { event.preventDefault(); event.returnValue = ''; } });
 addEventListener('keydown', event => {
   if (event.key !== 'Escape' || document.querySelector('dialog[open]')) return;
@@ -317,4 +330,5 @@ addEventListener('resize', () => {
 });
 render(); status('Ready. Tasks save on this device first.');
 startReminderChecks(() => state.tasks);
-if (sessionStorage.getItem('todo-sync-token') && navigator.onLine) attempt(() => store.synchronize());
+if (store.hasToken && navigator.onLine) attempt(() => store.synchronize());
+else if (store.hasToken) setSyncState('error', 'Offline. Local changes are safe but not synchronized.', true);

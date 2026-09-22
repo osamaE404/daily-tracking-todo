@@ -25,6 +25,8 @@ struct Task {
     id: String,
     title: String,
     notes: String,
+    #[serde(default)]
+    start: String,
     due: String,
     priority: u8,
     parent: Option<String>,
@@ -120,6 +122,12 @@ fn synchronize(db: &mut Connection, input: Sync) -> Result<Synced, Failure> {
             || task.title.trim().is_empty()
             || task.title.len() > 1000
             || task.notes.len() > 32000
+            || task.start.len() > 40
+            || (!task.start.is_empty()
+                && (task.due.is_empty()
+                    || task.start.get(..10).is_none()
+                    || task.due.get(..10).is_none()
+                    || task.start.get(..10) > task.due.get(..10)))
             || task.due.len() > 40
             || task.completed_at.len() > 40
             || task.priority > 3
@@ -466,6 +474,7 @@ mod tests {
             id: "a".into(),
             title: "First".into(),
             notes: "".into(),
+            start: "".into(),
             due: "".into(),
             priority: 0,
             parent: None,
@@ -664,6 +673,27 @@ mod tests {
         assert!(task.repeat.is_none());
         assert!(task.series_source.is_none());
         assert!(task.reminders.is_empty());
+        assert!(task.start.is_empty());
         assert!(task.completed_at.is_empty());
+    }
+
+    #[test]
+    fn duration_cannot_end_before_it_starts() {
+        let mut db = open_db(":memory:").unwrap();
+        let mut item = task();
+        item.start = "2026-10-31".into();
+        item.due = "2026-10-01".into();
+        assert!(
+            synchronize(
+                &mut db,
+                Sync {
+                    schema: 2,
+                    cursor: 0,
+                    changes: vec![item],
+                    collections: vec![],
+                }
+            )
+            .is_err()
+        );
     }
 }
