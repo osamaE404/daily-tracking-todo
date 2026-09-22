@@ -13,13 +13,13 @@ export function normalize(stored) {
   const state = stored || { cursor: 0, tasks: {}, pending: {}, conflicts: {} };
   state.collections ||= {}; state.pendingCollections ||= {}; state.collectionConflicts ||= {};
   for (const task of Object.values(state.tasks)) {
-    task.list_id ??= null; task.tags ||= []; task.pinned ??= false; task.repeat ??= null; task.series_source ??= null; task.reminders ||= [];
+    task.list_id ??= null; task.tags ||= []; task.pinned ??= false; task.repeat ??= null; task.series_source ??= null; task.reminders ||= []; task.completed_at ||= '';
   }
   return state;
 }
 export function newTask(title, fields = {}) {
   return { id: crypto.randomUUID(), title: title.trim(), notes: '', due: '', priority: 0, parent: null,
-    done: false, deleted: false, revision: 0, list_id: null, tags: [], pinned: false, repeat: null, series_source: null, reminders: [], ...fields };
+    done: false, completed_at: '', deleted: false, revision: 0, list_id: null, tags: [], pinned: false, repeat: null, series_source: null, reminders: [], ...fields };
 }
 export function repeatLabel(repeat) {
   if (!repeat) return 'Does not repeat';
@@ -55,7 +55,7 @@ export function nextOccurrence(task) {
   const nextDate = localDate(current);
   if (repeat.end && nextDate > repeat.end) return null;
   const base = task.id.split('@')[0];
-  return { ...structuredClone(task), id: `${base}@${nextDate}`, due: nextDate + task.due.slice(10), done: false, deleted: false, revision: 0, parent: task.parent, series_source: task.id };
+  return { ...structuredClone(task), id: `${base}@${nextDate}`, due: nextDate + task.due.slice(10), done: false, completed_at: '', deleted: false, revision: 0, parent: task.parent, series_source: task.id };
 }
 export function matches(task, view, collections, today = new Date()) {
   if (task.deleted) return false;
@@ -102,7 +102,9 @@ export function taskRows(tasks, view, collections, collapsed, sort = 'due', sear
     if (!children.has(key)) children.set(key, []);
     children.get(key).push(task);
   }
-  const compare = (a, b) => Number(b.pinned) - Number(a.pinned) || (sort === 'priority' ? b.priority - a.priority : (a.due || '9999').localeCompare(b.due || '9999')) || a.title.localeCompare(b.title);
+  const compare = view === 'done'
+    ? (a, b) => (b.completed_at || '').localeCompare(a.completed_at || '') || a.title.localeCompare(b.title)
+    : (a, b) => Number(b.pinned) - Number(a.pinned) || (sort === 'priority' ? b.priority - a.priority : (a.due || '9999').localeCompare(b.due || '9999')) || a.title.localeCompare(b.title);
   const stack = (children.get(null) || []).sort(compare).reverse().map(task => ({ task, depth: 0 }));
   const rows = []; const visited = new Set();
   while (stack.length) {

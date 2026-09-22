@@ -1,12 +1,12 @@
-import { COLORS, PRIORITIES, VIEWS, dayOffset, dueLabel, isOverdue, localDate, matches, newTask, nextOccurrence, repeatLabel, taskRows } from './model.js?v=5';
-import { openStore } from './store.js?v=5';
-import { createCalendar } from './calendar.js?v=5';
-import { enableNotifications, reminderLabel, startReminderChecks } from './reminders.js?v=5';
+import { COLORS, PRIORITIES, VIEWS, dayOffset, dueLabel, isOverdue, localDate, matches, newTask, nextOccurrence, repeatLabel, taskRows } from './model.js?v=6';
+import { openStore } from './store.js?v=6';
+import { createCalendar } from './calendar.js?v=6';
+import { enableNotifications, reminderLabel, startReminderChecks } from './reminders.js?v=6';
 
 const $ = selector => document.querySelector(selector);
 const status = message => { $('#status').textContent = message; };
 const attempt = action => Promise.resolve().then(action).catch(error => status(error.message));
-let state, view = 'all', selected, draft, original, dirty = false, collectionEditing, subtaskParent;
+let state, view = 'all', selected, draft, original, dirty = false, collectionEditing, subtaskParent, completedVisible = 200;
 const collapsed = new Set(), collapsedFolders = new Set();
 const store = await openStore(next => { state = next; render(); }, status).catch(error => {
   status('Cannot open device storage. Enable browser storage and reload before adding tasks.'); throw error;
@@ -34,7 +34,7 @@ function openNavigation() {
 }
 function chooseView(id) {
   if (!discardDraft()) return;
-  dirty = false; view = id; selected = null; draft = null; closeDetails(false); closeNavigation(); render();
+  dirty = false; view = id; completedVisible = 200; selected = null; draft = null; closeDetails(false); closeNavigation(); render();
 }
 function navItem(id, name, icon, color) {
   const node = button('', () => chooseView(id), null, 'nav-item'); node.dataset.view = id;
@@ -68,7 +68,7 @@ function checkTask(task) {
   const check = element('input', 'task-check'); check.type = 'checkbox'; check.checked = task.done;
   check.setAttribute('aria-label', `${task.done ? 'Mark incomplete' : 'Complete'}: ${task.title} (${PRIORITIES[task.priority]})`);
   check.onchange = () => attempt(() => store.update(next => {
-    const changed = next.tasks[task.id]; changed.done = check.checked; next.pending[task.id] = true;
+    const changed = next.tasks[task.id]; changed.done = check.checked; changed.completed_at = check.checked ? new Date().toISOString() : ''; next.pending[task.id] = true;
     if (check.checked) {
       const occurrence = nextOccurrence(changed);
       if (occurrence && !next.tasks[occurrence.id]) { next.tasks[occurrence.id] = occurrence; next.pending[occurrence.id] = true; }
@@ -89,6 +89,7 @@ function row({ task, depth = 0, count = 0, context = false }) {
   if (task.pinned) meta.append(element('span', '', 'Pinned'));
   if (task.priority) meta.append(element('span', 'priority-label', PRIORITIES[task.priority]));
   if (task.due) meta.append(element('span', `due${isOverdue(task) ? ' overdue' : ''}`, `${isOverdue(task) ? 'Overdue · ' : ''}${dueLabel(task.due)}`));
+  if (task.done && task.completed_at) meta.append(element('span', '', `Completed ${new Date(task.completed_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`));
   if (task.repeat) meta.append(element('span', '', `↻ ${repeatLabel(task.repeat)}`));
   if (task.reminders.length) meta.append(element('span', '', `◷ ${task.reminders.length}`));
   const list = state.collections[task.list_id];
@@ -109,16 +110,18 @@ function render() {
   $('#edit-collection').textContent = `Edit ${state.collections[view]?.kind || 'list'}`;
   $('#title').placeholder = `Add a task to ${state.collections[view]?.kind === 'list' ? name : 'Inbox'}`;
   const rows = taskRows(state.tasks, view, state.collections, collapsed, $('#sort').value, $('#search').value);
+  const visibleRows = view === 'done' && !$('#search').value ? rows.slice(0, completedVisible) : rows;
   const list = $('#tasks'); list.replaceChildren(); let previousGroup;
-  for (const item of rows) {
+  for (const item of visibleRows) {
     const group = item.task.pinned ? 'Pinned' : item.task.done ? 'Completed' : isOverdue(item.task) ? 'Overdue' : item.task.due ? 'Scheduled' : 'No date';
     if (!item.depth && group !== previousGroup) { list.append(element('div', `group-heading${group === 'Overdue' ? ' overdue' : ''}`, group)); previousGroup = group; }
     list.append(row(item));
   }
-  if (!rows.length) {
+  if (!visibleRows.length) {
     const empty = element('div', 'empty-list'); empty.append(element('span', 'empty-check', '✓'), element('h2', '', $('#search').value ? 'No matching tasks' : 'Nothing in this view yet'), element('p', '', $('#search').value ? 'Try another search or choose a different view.' : 'Add a task above, or choose another list.'));
     list.append(empty);
   }
+  if (visibleRows.length < rows.length) list.append(button(`Load ${Math.min(200, rows.length - visibleRows.length)} older tasks`, () => { completedVisible += 200; render(); }, null, 'load-older'));
   $('#conflicts').replaceChildren();
   for (const [records, collection] of [[state.conflicts, false], [state.collectionConflicts, true]]) for (const [id, remote] of Object.entries(records)) {
     const notice = element('div', 'conflict');

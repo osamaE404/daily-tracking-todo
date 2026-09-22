@@ -4,7 +4,7 @@
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#202123"><title>All tasks · Todo</title>
   <link rel="manifest" href="/manifest.webmanifest"><link rel="apple-touch-icon" href="/icons/icon-192.png">
-  <link rel="stylesheet" href="/app/app.css?v=5">
+  <link rel="stylesheet" href="/app/app.css?v=6">
 </head>
 <body>
   <a class="skip" href="#title">Skip to add task</a>
@@ -63,6 +63,6 @@
   <dialog id="reminder-dialog" aria-labelledby="reminder-heading"><form method="dialog" class="dialog-top"><h2 id="reminder-heading">Reminders</h2><button aria-label="Close reminders">×</button></form><div id="reminder-list"></div><form id="reminder-form"><label class="field">Add reminder<select name="minutes"><option value="0">At due time</option><option value="-10">10 minutes before</option><option value="-30">30 minutes before</option><option value="-60">1 hour before</option><option value="-1440">1 day before</option></select></label><button class="primary">Add reminder</button></form><p id="notification-state" class="calendar-note">Alerts work while Todo is open. Background delivery will require server push.</p></dialog>
   <dialog id="connection" aria-labelledby="connection-title"><form method="dialog" class="dialog-top"><h2 id="connection-title">Private sync</h2><button aria-label="Close sync settings">×</button></form><p>Use the same private token on each device. It stays in this browser session.</p><form id="unlock"><label class="field">Private sync token<input name="token" type="password" required minlength="32" autocomplete="off"></label><button class="primary">Connect and sync</button></form><button id="lock">Lock sync on this device</button><p class="muted">Locking sync does not erase local tasks. Protect this device with a screen lock.</p></dialog>
   <dialog id="install-help"><form method="dialog" class="dialog-top"><h2>Install Todo</h2><button aria-label="Close installation help">×</button></form><p>On iPhone: open in Safari, tap Share, then Add to Home Screen.</p><p>On Android: use the browser menu, then Install app or Add to Home screen. On desktop, look for the install icon in the address bar.</p><p data-install-status>Your tasks work offline after the first complete load.</p></dialog>
-  <script type="module" src="/app/app.js?v=5"></script><script type="module" src="/install.js?v=5"></script>
+  <script type="module" src="/app/app.js?v=6"></script><script type="module" src="/install.js?v=6"></script>
 </body>
 </html>

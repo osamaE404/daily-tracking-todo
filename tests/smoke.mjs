@@ -51,7 +51,7 @@ try {
   };
   await call('Runtime.enable'); await call('Network.enable');
   await until(()=>evaluate("document.querySelector('#status')?.textContent.includes('Ready')"));
-  assert.equal(await evaluate("new URL(document.querySelector('link[rel=stylesheet]').href).search"), '?v=5');
+  assert.equal(await evaluate("new URL(document.querySelector('link[rel=stylesheet]').href).search"), '?v=6');
   assert.equal(await evaluate("getComputedStyle(document.querySelector('.skip')).transform !== 'none'"), true, 'app shell must not render without its current stylesheet');
   await evaluate('navigator.serviceWorker.ready.then(() => true)');
   await evaluate('window.__beforeSmokeReload = true');

@@ -2,7 +2,7 @@
 
 The landing page and PWA are public. `POST /api/sync` requires `Authorization: Bearer <private token>`. Use a cryptographically random token of at least 32 characters. Tokens are compared as SHA-256 digests in constant time. HTTPS terminates at Caddy; there is no cross-origin API configuration and no token in a URL. Requests are limited to 2 MiB and 500 changes.
 
-Request: `{ "schema": 2, "cursor": 0, "changes": [], "collections": [] }`. Each task contains `id`, `title`, `notes`, `due` (local datetime string), `priority` (0–3), `parent` (ID or null), `list_id`, `tags`, `pinned`, `done`, `deleted`, and `revision`. Collections represent folders, lists, and tags. New records start at revision 0.
+Request: `{ "schema": 2, "cursor": 0, "changes": [], "collections": [] }`. Each task contains `id`, `title`, `notes`, `due` (local datetime string), `priority` (0–3), `parent` (ID or null), `list_id`, `tags`, `pinned`, `done`, `completed_at` (an ISO timestamp or an empty string), `deleted`, and `revision`. Collections represent folders, lists, and tags. New records start at revision 0. Older records without `completed_at` remain valid and gain an empty value when loaded.
 
 Response: `{ "cursor": 1, "records": [...], "conflicts": [], "collections": [...], "collection_conflicts": [] }`. The server assigns one monotonically increasing revision across tasks and collections. It returns records newer than the supplied cursor. Matching retries are idempotent; stale edits are returned as conflicts. The device retains the pending local version until the owner explicitly chooses the local or server version. Invalid references or task cycles roll back the batch. Tombstones remain available to devices that were offline.
 

@@ -3,7 +3,7 @@ import { nextOccurrence } from './model.js';
 
 const task = (due, repeat) => ({
   id: 'series', title: 'Recurring task', notes: '', due, priority: 0, parent: null,
-  done: true, deleted: false, revision: 4, list_id: null, tags: [], pinned: false,
+  done: true, completed_at: '2026-09-22T10:00:00.000Z', deleted: false, revision: 4, list_id: null, tags: [], pinned: false,
   repeat, series_source: null, reminders: [],
 });
 
@@ -20,6 +20,7 @@ describe('recurring occurrences', () => {
     const repeat = { unit: 'day', interval: 3, end: '2026-09-25', anchor: '2026-09-22' };
     const next = nextOccurrence(task('2026-09-22', repeat));
     expect(next.id).toBe('series@2026-09-25');
+    expect(next.completed_at).toBe('');
     expect(nextOccurrence(next)).toBeNull();
   });
 

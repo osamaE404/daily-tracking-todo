@@ -5,6 +5,7 @@ import base64
 import json
 import os
 import subprocess
+import sys
 import urllib.request
 
 
@@ -28,7 +29,10 @@ ip = subprocess.check_output(
     text=True,
 ).strip()
 url = f"http://{ip}:8080/api/sync"
-batch = json.loads(base64.b64decode(os.environ["IMPORT_B64"]))
+encoded = os.environ.get("IMPORT_B64")
+if not encoded:
+    encoded = sys.stdin.read(int(sys.stdin.readline()))
+batch = json.loads(base64.b64decode(encoded))
 snapshot = sync(url, token, {"schema": 2, "cursor": 0, "changes": [], "collections": []})
 batch["cursor"] = snapshot["cursor"]
 if os.environ.get("IMPORT_UPDATE_EXISTING") == "1":

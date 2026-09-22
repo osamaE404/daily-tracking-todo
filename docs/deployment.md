@@ -23,7 +23,7 @@ Back up SQLite using its online backup API, or stop only Todo briefly and copy t
 
 Include `deploy/.dockerignore` in the build directory so credentials and database files never enter the Docker build context.
 
-`deploy/import_sync.py` accepts a base64-encoded schema-v2 sync batch in `IMPORT_B64` and reads the private token on the server, keeping credentials out of command history. Set `IMPORT_UPDATE_EXISTING=1` only for a deliberate migration that should update matching record IDs; normal imports leave it unset. Back up SQLite before any import.
+`deploy/import_sync.py` accepts a base64-encoded schema-v2 sync batch in `IMPORT_B64` and reads the private token on the server, keeping credentials out of command history. For a streamed import, send the base64 character count followed by a newline and then exactly that many characters on standard input. Set `IMPORT_UPDATE_EXISTING=1` only for a deliberate migration that should update matching record IDs; normal imports leave it unset. Back up SQLite before any import.
 
 PWA updates: increment the cache version in `sw.js` and the matching `?v=` shell URLs when changing app assets. Version every imported JavaScript module too. This prevents an older worker from pairing new HTML with stale CSS or modules while the replacement worker waits for old windows to close. API responses and private task data are never put in the service-worker cache.
 

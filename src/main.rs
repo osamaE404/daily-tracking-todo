@@ -29,6 +29,8 @@ struct Task {
     priority: u8,
     parent: Option<String>,
     done: bool,
+    #[serde(default)]
+    completed_at: String,
     deleted: bool,
     #[serde(default)]
     revision: i64,
@@ -119,6 +121,7 @@ fn synchronize(db: &mut Connection, input: Sync) -> Result<Synced, Failure> {
             || task.title.len() > 1000
             || task.notes.len() > 32000
             || task.due.len() > 40
+            || task.completed_at.len() > 40
             || task.priority > 3
             || task.revision < 0
             || task
@@ -467,6 +470,7 @@ mod tests {
             priority: 0,
             parent: None,
             done: false,
+            completed_at: String::new(),
             deleted: false,
             revision: 0,
             list_id: None,
@@ -660,5 +664,6 @@ mod tests {
         assert!(task.repeat.is_none());
         assert!(task.series_source.is_none());
         assert!(task.reminders.is_empty());
+        assert!(task.completed_at.is_empty());
     }
 }
