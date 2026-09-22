@@ -1,4 +1,4 @@
-import { normalize } from './model.js';
+import { normalize } from './model.js?v=5';
 
 export async function openStore(onChange, status) {
   const request = indexedDB.open('gharawi-todo', 1);

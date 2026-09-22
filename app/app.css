@@ -77,6 +77,11 @@ legend { margin-bottom: 8px; color: var(--muted); font-size: .85rem; }
 .task-meta .priority-label { color: var(--priority); }
 .due.overdue { color: var(--red); }
 .tag, .list-label { color: var(--color); }
+.reminder-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.reminder-row button { min-height: 36px; }
+.weekday-picker { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
+.weekday-picker label { display: grid; place-items: center; gap: 4px; color: var(--muted); font-size: .75rem; }
+.weekday-picker input { min-height: 24px; width: 24px; padding: 0; }
 .tag { border-radius: 4px; padding: 1px 6px; background: #202123; border: 1px solid var(--color); }
 .list-label::before { content: ''; display: inline-block; width: 7px; height: 7px; background: var(--color); border-radius: 2px; margin-inline-end: 5px; }
 [data-color="blue"] { --color: var(--blue); } [data-color="red"] { --color: var(--red); } [data-color="amber"] { --color: var(--amber); }

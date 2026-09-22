@@ -42,6 +42,8 @@ struct Task {
     repeat: Option<Repeat>,
     #[serde(default)]
     series_source: Option<String>,
+    #[serde(default)]
+    reminders: Vec<i32>,
 }
 #[derive(Clone, Serialize, Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
@@ -50,6 +52,8 @@ struct Repeat {
     interval: u16,
     end: String,
     anchor: String,
+    #[serde(default)]
+    weekdays: Vec<u8>,
 }
 #[derive(Clone, Serialize, Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
@@ -123,6 +127,11 @@ fn synchronize(db: &mut Connection, input: Sync) -> Result<Synced, Failure> {
                 .is_some_and(|id| id.is_empty() || id.len() > 100)
             || task.tags.len() > 30
             || task.tags.iter().any(|id| id.is_empty() || id.len() > 100)
+            || task.reminders.len() > 20
+            || task
+                .reminders
+                .iter()
+                .any(|minutes| !(-525_600..=525_600).contains(minutes))
             || task
                 .series_source
                 .as_ref()
@@ -132,6 +141,9 @@ fn synchronize(db: &mut Connection, input: Sync) -> Result<Synced, Failure> {
                     || !(1..=365).contains(&repeat.interval)
                     || !date_or_empty(&repeat.end)
                     || !date_or_empty(&repeat.anchor)
+                    || repeat.weekdays.len() > 7
+                    || repeat.weekdays.iter().any(|day| *day > 6)
+                    || (!repeat.weekdays.is_empty() && repeat.unit != "week")
                     || task.due.is_empty()
             })
             || task
@@ -260,12 +272,11 @@ fn synchronize(db: &mut Connection, input: Sync) -> Result<Synced, Failure> {
             result
         };
         for collection in collections.values() {
-            if let Some(parent) = &collection.parent {
-                if collection.kind != "list"
-                    || !collections.get(parent).is_some_and(|p| p.kind == "folder")
-                {
-                    return Err(bad);
-                }
+            if let Some(parent) = &collection.parent
+                && (collection.kind != "list"
+                    || collections.get(parent).is_none_or(|p| p.kind != "folder"))
+            {
+                return Err(bad);
             }
         }
         for body in bodies {
@@ -274,11 +285,11 @@ fn synchronize(db: &mut Connection, input: Sync) -> Result<Synced, Failure> {
                 if task
                     .list_id
                     .as_ref()
-                    .is_some_and(|id| !collections.get(id).is_some_and(|c| c.kind == "list"))
+                    .is_some_and(|id| collections.get(id).is_none_or(|c| c.kind != "list"))
                     || task
                         .tags
                         .iter()
-                        .any(|id| !collections.get(id).is_some_and(|c| c.kind == "tag"))
+                        .any(|id| collections.get(id).is_none_or(|c| c.kind != "tag"))
                 {
                     return Err(bad);
                 }
@@ -392,6 +403,7 @@ async fn asset(uri: axum::http::Uri) -> Response {
         "/app/model.js" => (include_bytes!("../app/model.js"), "text/javascript"),
         "/app/store.js" => (include_bytes!("../app/store.js"), "text/javascript"),
         "/app/calendar.js" => (include_bytes!("../app/calendar.js"), "text/javascript"),
+        "/app/reminders.js" => (include_bytes!("../app/reminders.js"), "text/javascript"),
         "/app/app.css" => (include_bytes!("../app/app.css"), "text/css"),
         "/sw.js" => (include_bytes!("../sw.js"), "text/javascript"),
         "/manifest.webmanifest" => (
@@ -462,6 +474,7 @@ mod tests {
             pinned: false,
             repeat: None,
             series_source: None,
+            reminders: Vec::new(),
         }
     }
     #[test]
@@ -603,6 +616,7 @@ mod tests {
             interval: 0,
             end: String::new(),
             anchor: "2026-09-22".into(),
+            weekdays: vec![],
         });
         assert!(
             synchronize(
@@ -645,5 +659,6 @@ mod tests {
         assert!(!task.pinned);
         assert!(task.repeat.is_none());
         assert!(task.series_source.is_none());
+        assert!(task.reminders.is_empty());
     }
 }

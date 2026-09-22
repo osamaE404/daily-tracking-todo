@@ -13,16 +13,20 @@ export function normalize(stored) {
   const state = stored || { cursor: 0, tasks: {}, pending: {}, conflicts: {} };
   state.collections ||= {}; state.pendingCollections ||= {}; state.collectionConflicts ||= {};
   for (const task of Object.values(state.tasks)) {
-    task.list_id ??= null; task.tags ||= []; task.pinned ??= false; task.repeat ??= null; task.series_source ??= null;
+    task.list_id ??= null; task.tags ||= []; task.pinned ??= false; task.repeat ??= null; task.series_source ??= null; task.reminders ||= [];
   }
   return state;
 }
 export function newTask(title, fields = {}) {
   return { id: crypto.randomUUID(), title: title.trim(), notes: '', due: '', priority: 0, parent: null,
-    done: false, deleted: false, revision: 0, list_id: null, tags: [], pinned: false, repeat: null, series_source: null, ...fields };
+    done: false, deleted: false, revision: 0, list_id: null, tags: [], pinned: false, repeat: null, series_source: null, reminders: [], ...fields };
 }
 export function repeatLabel(repeat) {
   if (!repeat) return 'Does not repeat';
+  if (repeat.unit === 'week' && repeat.weekdays?.length) {
+    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    return `Every ${repeat.interval === 1 ? 'week' : `${repeat.interval} weeks`} · ${repeat.weekdays.map(day => days[day]).join(', ')}`;
+  }
   const units = { day: 'day', week: 'week', month: 'month', year: 'year' };
   return repeat.interval === 1 ? `Every ${units[repeat.unit]}` : `Every ${repeat.interval} ${units[repeat.unit]}s`;
 }
@@ -31,7 +35,15 @@ export function nextOccurrence(task) {
   const repeat = task.repeat, date = task.due.slice(0, 10), anchorValue = repeat.anchor || date;
   const current = new Date(`${date}T12:00`), anchor = new Date(`${anchorValue}T12:00`);
   if (repeat.unit === 'day') current.setDate(current.getDate() + repeat.interval);
-  else if (repeat.unit === 'week') current.setDate(current.getDate() + 7 * repeat.interval);
+  else if (repeat.unit === 'week' && repeat.weekdays?.length) {
+    const anchorWeek = new Date(anchor); anchorWeek.setDate(anchorWeek.getDate() - anchorWeek.getDay());
+    for (let offset = 1; offset <= repeat.interval * 7 + 7; offset++) {
+      const candidate = new Date(current); candidate.setDate(candidate.getDate() + offset);
+      const week = new Date(candidate); week.setDate(week.getDate() - week.getDay());
+      const weeks = Math.round((week - anchorWeek) / 604800000);
+      if (weeks % repeat.interval === 0 && repeat.weekdays.includes(candidate.getDay())) { current.setTime(candidate.getTime()); break; }
+    }
+  } else if (repeat.unit === 'week') current.setDate(current.getDate() + 7 * repeat.interval);
   else if (repeat.unit === 'month') {
     const target = current.getFullYear() * 12 + current.getMonth() + repeat.interval;
     const year = Math.floor(target / 12), month = ((target % 12) + 12) % 12;

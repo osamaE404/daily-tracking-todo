@@ -51,6 +51,8 @@ try {
   };
   await call('Runtime.enable'); await call('Network.enable');
   await until(()=>evaluate("document.querySelector('#status')?.textContent.includes('Ready')"));
+  assert.equal(await evaluate("new URL(document.querySelector('link[rel=stylesheet]').href).search"), '?v=5');
+  assert.equal(await evaluate("getComputedStyle(document.querySelector('.skip')).transform !== 'none'"), true, 'app shell must not render without its current stylesheet');
   await evaluate('navigator.serviceWorker.ready.then(() => true)');
   await evaluate('window.__beforeSmokeReload = true');
   await call('Page.reload');
@@ -69,8 +71,8 @@ try {
     throw new Error(`${error.message}; browser=${JSON.stringify(diagnostics)}; exceptions=${JSON.stringify(errors)}`);
   }
   await evaluate("document.querySelector('.task-name').click()");
-  await evaluate("document.querySelector('#priority').value='3';document.querySelector('#priority').dispatchEvent(new Event('input',{bubbles:true}));document.querySelector('#task-tags input').click();document.querySelector('#schedule').click();document.querySelector('#calendar [data-offset=\"1\"]').click();document.querySelector('#date-form').requestSubmit();document.querySelector('#repeat').click();document.querySelector('#repeat-form [name=interval]').value='3';document.querySelector('#repeat-form').requestSubmit();document.querySelector('#edit').requestSubmit()");
-  await until(()=>evaluate("document.querySelector('#tasks').textContent.includes('High') && document.querySelector('#tasks').textContent.includes('Tomorrow') && document.querySelector('#tasks').textContent.includes('#Next') && document.querySelector('#tasks').textContent.includes('Every 3 days')"));
+  await evaluate("document.querySelector('#priority').value='3';document.querySelector('#priority').dispatchEvent(new Event('input',{bubbles:true}));document.querySelector('#task-tags input').click();document.querySelector('#schedule').click();document.querySelector('#calendar [data-offset=\"1\"]').click();document.querySelector('#date-form').requestSubmit();document.querySelector('#repeat').click();document.querySelector('#repeat-form [name=interval]').value='3';document.querySelector('#repeat-form').requestSubmit();document.querySelector('#reminder').click();document.querySelector('#reminder-form [name=minutes]').value='-30';document.querySelector('#reminder-form').requestSubmit();document.querySelector('#reminder-dialog').close();document.querySelector('#edit').requestSubmit()");
+  await until(()=>evaluate("document.querySelector('#tasks').textContent.includes('High') && document.querySelector('#tasks').textContent.includes('Tomorrow') && document.querySelector('#tasks').textContent.includes('#Next') && document.querySelector('#tasks').textContent.includes('Every 3 days') && document.querySelector('#tasks').textContent.includes('◷ 1')"));
   await call('Emulation.setDeviceMetricsOverride',{width:1440,height:900,deviceScaleFactor:1,mobile:false});
   await capture('desktop.png');
   await call('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
@@ -104,7 +106,7 @@ try {
     assert.equal(await evaluate('document.documentElement.scrollWidth <= innerWidth'),true,`overflow at ${width}`);
   }
   await call('Page.navigate',{url:base});
-  await until(()=>evaluate("Boolean(document.querySelector('[data-install]'))"));
+  await until(()=>evaluate("location.pathname === '/' && Boolean(document.querySelector('.hero [data-install]'))"));
   await evaluate("document.querySelector('[data-install]').click()");
   await until(()=>evaluate("document.querySelector('#install-help').open"));
   assert.deepEqual(errors,[]);

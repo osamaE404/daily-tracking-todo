@@ -2,7 +2,7 @@
 
 An open-source, offline-first task system for daily and weekly planning, deep task trees, habits, and focus.
 
-The current personal-use version includes an installable offline task app and a Rust/SQLite synchronization service. It has responsive phone and desktop layouts, colored lists grouped in folders, tags, priorities, task trees, notes, local date/time scheduling, and recurring tasks. Habits, reminder delivery, and a production focus tracker are still planned. The landing-page focus timer is a demonstration.
+The current personal-use version includes an installable offline task app and a Rust/SQLite synchronization service. It has responsive phone and desktop layouts, colored lists grouped in folders, tags, priorities, task trees, notes, local date/time scheduling, multi-day recurrence, and reminders. Browser reminders currently fire while Todo is open; closed-app delivery still needs Web Push. Habits and a production focus tracker are planned. The landing-page focus timer is a demonstration.
 
 ## Why it exists
 
@@ -53,7 +53,7 @@ cargo build --release --locked
 bun tests/smoke.mjs
 ```
 
-The smoke check requires Bun and `google-chrome-stable`; it uses a temporary database and browser profile. See [deployment](docs/deployment.md) and [sync protocol](docs/sync.md).
+The smoke check requires Bun and `google-chrome-stable`; it uses a temporary database and browser profile. It covers the versioned PWA shell, phone and desktop layouts, collections, recurrence, reminders, offline reload, and synchronization. See [deployment](docs/deployment.md) and [sync protocol](docs/sync.md).
 
 Run the interaction check with:
 

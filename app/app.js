@@ -1,6 +1,7 @@
-import { COLORS, PRIORITIES, VIEWS, dayOffset, dueLabel, isOverdue, localDate, matches, newTask, nextOccurrence, repeatLabel, taskRows } from './model.js';
-import { openStore } from './store.js';
-import { createCalendar } from './calendar.js';
+import { COLORS, PRIORITIES, VIEWS, dayOffset, dueLabel, isOverdue, localDate, matches, newTask, nextOccurrence, repeatLabel, taskRows } from './model.js?v=5';
+import { openStore } from './store.js?v=5';
+import { createCalendar } from './calendar.js?v=5';
+import { enableNotifications, reminderLabel, startReminderChecks } from './reminders.js?v=5';
 
 const $ = selector => document.querySelector(selector);
 const status = message => { $('#status').textContent = message; };
@@ -89,6 +90,7 @@ function row({ task, depth = 0, count = 0, context = false }) {
   if (task.priority) meta.append(element('span', 'priority-label', PRIORITIES[task.priority]));
   if (task.due) meta.append(element('span', `due${isOverdue(task) ? ' overdue' : ''}`, `${isOverdue(task) ? 'Overdue · ' : ''}${dueLabel(task.due)}`));
   if (task.repeat) meta.append(element('span', '', `↻ ${repeatLabel(task.repeat)}`));
+  if (task.reminders.length) meta.append(element('span', '', `◷ ${task.reminders.length}`));
   const list = state.collections[task.list_id];
   if (list) { const label = element('span', 'list-label', list.title); label.dataset.color = list.color; meta.append(label); }
   for (const id of task.tags) {
@@ -154,6 +156,7 @@ function renderSubtasks() {
 function updateDraftControls() {
   $('#schedule span').textContent = dueLabel(draft.due);
   $('#repeat span').textContent = repeatLabel(draft.repeat);
+  $('#reminder span').textContent = draft.reminders.length ? `${draft.reminders.length} reminder${draft.reminders.length === 1 ? '' : 's'}` : 'No reminder';
   $('#priority').dataset.priority = $('#priority').value;
   $('#pin').setAttribute('aria-pressed', String(draft.pinned)); $('#pin').textContent = draft.pinned ? 'Pinned' : 'Pin';
 }
@@ -208,20 +211,43 @@ $('#repeat').onclick = () => {
   if (!draft.due) { $('#edit-status').textContent = 'Choose a date before adding a repeat.'; showCalendar(''); return; }
   const form = $('#repeat-form'), repeat = draft.repeat || { unit: 'day', interval: 1, end: '', anchor: draft.due.slice(0, 10) };
   form.elements.unit.value = repeat.unit; form.elements.interval.value = repeat.interval; form.elements.end.value = repeat.end;
+  form.querySelectorAll('[name="weekday"]').forEach(input => { input.checked = (repeat.weekdays || []).includes(Number(input.value)); });
+  $('#weekday-field').hidden = repeat.unit !== 'week';
   $('#repeat-dialog').showModal();
 };
+$('#repeat-form').elements.unit.onchange = event => { $('#weekday-field').hidden = event.target.value !== 'week'; };
 $('#repeat-form').onsubmit = event => {
   event.preventDefault(); const form = event.target;
-  draft.repeat = { unit: form.elements.unit.value, interval: Number(form.elements.interval.value), end: form.elements.end.value, anchor: draft.repeat?.anchor || draft.due.slice(0, 10) };
+  const unit = form.elements.unit.value;
+  draft.repeat = { unit, interval: Number(form.elements.interval.value), end: form.elements.end.value, anchor: draft.repeat?.anchor || draft.due.slice(0, 10), weekdays: unit === 'week' ? [...form.querySelectorAll('[name="weekday"]:checked')].map(input => Number(input.value)) : [] };
   markDirty(); $('#repeat-dialog').close();
 };
 $('#clear-repeat').onclick = () => { draft.repeat = null; markDirty(); $('#repeat-dialog').close(); };
+function renderReminders() {
+  const list = $('#reminder-list'); list.replaceChildren();
+  for (const minutes of draft.reminders.toSorted((a, b) => a - b)) {
+    const row = element('div', 'reminder-row');
+    row.append(element('span', '', reminderLabel(minutes, draft.due.length === 10)), button('Remove', () => { draft.reminders = draft.reminders.filter(value => value !== minutes); markDirty(); renderReminders(); }, `Remove ${reminderLabel(minutes)}`));
+    list.append(row);
+  }
+  if (!draft.reminders.length) list.append(element('p', 'muted', 'No reminders for this task.'));
+}
+$('#reminder').onclick = () => {
+  if (!draft.due) { $('#edit-status').textContent = 'Choose a date before adding a reminder.'; showCalendar(''); return; }
+  renderReminders(); $('#reminder-dialog').showModal();
+};
+$('#reminder-form').onsubmit = event => {
+  event.preventDefault(); const minutes = Number(event.target.elements.minutes.value);
+  if (!draft.reminders.includes(minutes)) draft.reminders.push(minutes);
+  markDirty(); renderReminders();
+  enableNotifications().then(message => { $('#notification-state').textContent = message; });
+};
 $('#pin').onclick = () => { draft.pinned = !draft.pinned; markDirty(); };
 $('#edit').oninput = markDirty;
 $('#edit').onsubmit = event => {
   event.preventDefault(); const form = event.target; const id = selected;
   const fields = { title: form.elements.title.value.trim(), notes: form.elements.notes.value, priority: Number(form.elements.priority.value), list_id: form.elements.list_id.value || null,
-    tags: [...form.querySelectorAll('[name="tags"]:checked')].map(input => input.value), due: draft.due, pinned: draft.pinned, repeat: draft.repeat };
+    tags: [...form.querySelectorAll('[name="tags"]:checked')].map(input => input.value), due: draft.due, pinned: draft.pinned, repeat: draft.repeat, reminders: draft.reminders };
   const baseline = structuredClone(original);
   attempt(async () => {
     if (!fields.title) throw new Error('Give the task a title before saving.');
@@ -287,4 +313,5 @@ addEventListener('resize', () => {
   $('#navigation').inert = innerWidth < 1150 && document.body.classList.contains('detail-open');
 });
 render(); status('Ready. Tasks save on this device first.');
+startReminderChecks(() => state.tasks);
 if (sessionStorage.getItem('todo-sync-token') && navigator.onLine) attempt(() => store.synchronize());
