@@ -1,4 +1,4 @@
-import { COLORS, PRIORITIES, VIEWS, dayOffset, dueLabel, isOverdue, localDate, matches, newTask, taskRows } from './model.js';
+import { COLORS, PRIORITIES, VIEWS, dayOffset, dueLabel, isOverdue, localDate, matches, newTask, nextOccurrence, repeatLabel, taskRows } from './model.js';
 import { openStore } from './store.js';
 import { createCalendar } from './calendar.js';
 
@@ -67,7 +67,11 @@ function checkTask(task) {
   const check = element('input', 'task-check'); check.type = 'checkbox'; check.checked = task.done;
   check.setAttribute('aria-label', `${task.done ? 'Mark incomplete' : 'Complete'}: ${task.title} (${PRIORITIES[task.priority]})`);
   check.onchange = () => attempt(() => store.update(next => {
-    next.tasks[task.id].done = check.checked; next.pending[task.id] = true;
+    const changed = next.tasks[task.id]; changed.done = check.checked; next.pending[task.id] = true;
+    if (check.checked) {
+      const occurrence = nextOccurrence(changed);
+      if (occurrence && !next.tasks[occurrence.id]) { next.tasks[occurrence.id] = occurrence; next.pending[occurrence.id] = true; }
+    }
   }));
   label.append(check); return label;
 }
@@ -84,6 +88,7 @@ function row({ task, depth = 0, count = 0, context = false }) {
   if (task.pinned) meta.append(element('span', '', 'Pinned'));
   if (task.priority) meta.append(element('span', 'priority-label', PRIORITIES[task.priority]));
   if (task.due) meta.append(element('span', `due${isOverdue(task) ? ' overdue' : ''}`, `${isOverdue(task) ? 'Overdue · ' : ''}${dueLabel(task.due)}`));
+  if (task.repeat) meta.append(element('span', '', `↻ ${repeatLabel(task.repeat)}`));
   const list = state.collections[task.list_id];
   if (list) { const label = element('span', 'list-label', list.title); label.dataset.color = list.color; meta.append(label); }
   for (const id of task.tags) {
@@ -148,6 +153,7 @@ function renderSubtasks() {
 }
 function updateDraftControls() {
   $('#schedule span').textContent = dueLabel(draft.due);
+  $('#repeat span').textContent = repeatLabel(draft.repeat);
   $('#priority').dataset.priority = $('#priority').value;
   $('#pin').setAttribute('aria-pressed', String(draft.pinned)); $('#pin').textContent = draft.pinned ? 'Pinned' : 'Pin';
 }
@@ -190,14 +196,32 @@ function openCollection(kind, item) {
   $('#collection-dialog').showModal(); form.elements.title.focus();
 }
 
-const showCalendar = createCalendar(due => { draft.due = due; markDirty(); });
+const showCalendar = createCalendar(due => {
+  const dateChanged = draft.due.slice(0, 10) !== due.slice(0, 10);
+  draft.due = due;
+  if (!due) draft.repeat = null;
+  else if (dateChanged && draft.repeat) draft.repeat.anchor = due.slice(0, 10);
+  markDirty();
+});
 $('#schedule').onclick = () => showCalendar(draft.due);
+$('#repeat').onclick = () => {
+  if (!draft.due) { $('#edit-status').textContent = 'Choose a date before adding a repeat.'; showCalendar(''); return; }
+  const form = $('#repeat-form'), repeat = draft.repeat || { unit: 'day', interval: 1, end: '', anchor: draft.due.slice(0, 10) };
+  form.elements.unit.value = repeat.unit; form.elements.interval.value = repeat.interval; form.elements.end.value = repeat.end;
+  $('#repeat-dialog').showModal();
+};
+$('#repeat-form').onsubmit = event => {
+  event.preventDefault(); const form = event.target;
+  draft.repeat = { unit: form.elements.unit.value, interval: Number(form.elements.interval.value), end: form.elements.end.value, anchor: draft.repeat?.anchor || draft.due.slice(0, 10) };
+  markDirty(); $('#repeat-dialog').close();
+};
+$('#clear-repeat').onclick = () => { draft.repeat = null; markDirty(); $('#repeat-dialog').close(); };
 $('#pin').onclick = () => { draft.pinned = !draft.pinned; markDirty(); };
 $('#edit').oninput = markDirty;
 $('#edit').onsubmit = event => {
   event.preventDefault(); const form = event.target; const id = selected;
   const fields = { title: form.elements.title.value.trim(), notes: form.elements.notes.value, priority: Number(form.elements.priority.value), list_id: form.elements.list_id.value || null,
-    tags: [...form.querySelectorAll('[name="tags"]:checked')].map(input => input.value), due: draft.due, pinned: draft.pinned };
+    tags: [...form.querySelectorAll('[name="tags"]:checked')].map(input => input.value), due: draft.due, pinned: draft.pinned, repeat: draft.repeat };
   const baseline = structuredClone(original);
   attempt(async () => {
     if (!fields.title) throw new Error('Give the task a title before saving.');
@@ -214,6 +238,15 @@ $('#add').onsubmit = event => {
   attempt(async () => { await addTask(title); $('#title').value = ''; $('#title').focus(); }).finally(() => { submit.disabled = false; });
 };
 $('#add-subtask').onclick = () => { subtaskParent = selected; $('#subtask-form').reset(); $('#subtask-dialog').showModal(); };
+$('#delete-task').onclick = () => {
+  const descendants = [], queue = [selected];
+  while (queue.length) { const id = queue.pop(); descendants.push(id); queue.push(...Object.values(state.tasks).filter(task => !task.deleted && task.parent === id).map(task => task.id)); }
+  if (!confirm(descendants.length === 1 ? 'Delete this task?' : `Delete this task and its ${descendants.length - 1} subtasks?`)) return;
+  attempt(async () => {
+    await store.update(next => { for (const id of descendants) { next.tasks[id].deleted = true; next.pending[id] = true; } });
+    closeDetails(false); render();
+  });
+};
 $('#subtask-form').onsubmit = event => {
   event.preventDefault(); const title = event.target.elements.title.value.trim(); if (!title) return;
   attempt(async () => { await addTask(title, subtaskParent); collapsed.delete(subtaskParent); $('#subtask-dialog').close(); render(); });

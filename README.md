@@ -2,7 +2,7 @@
 
 An open-source, offline-first task system for daily and weekly planning, deep task trees, habits, and focus.
 
-The current personal-use version includes an installable offline task app and a Rust/SQLite synchronization service. It has responsive phone and desktop layouts, colored lists grouped in folders, tags, priorities, task trees, notes, and local date/time scheduling. Habits, recurrence, reminder delivery, and a production focus tracker are still planned. The landing-page focus timer is a demonstration.
+The current personal-use version includes an installable offline task app and a Rust/SQLite synchronization service. It has responsive phone and desktop layouts, colored lists grouped in folders, tags, priorities, task trees, notes, local date/time scheduling, and recurring tasks. Habits, reminder delivery, and a production focus tracker are still planned. The landing-page focus timer is a demonstration.
 
 ## Why it exists
 

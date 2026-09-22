@@ -69,14 +69,16 @@ try {
     throw new Error(`${error.message}; browser=${JSON.stringify(diagnostics)}; exceptions=${JSON.stringify(errors)}`);
   }
   await evaluate("document.querySelector('.task-name').click()");
-  await evaluate("document.querySelector('#priority').value='3';document.querySelector('#priority').dispatchEvent(new Event('input',{bubbles:true}));document.querySelector('#task-tags input').click();document.querySelector('#schedule').click();document.querySelector('#calendar [data-offset=\"1\"]').click();document.querySelector('#date-form').requestSubmit();document.querySelector('#edit').requestSubmit()");
-  await until(()=>evaluate("document.querySelector('#tasks').textContent.includes('High') && document.querySelector('#tasks').textContent.includes('Tomorrow') && document.querySelector('#tasks').textContent.includes('#Next')"));
+  await evaluate("document.querySelector('#priority').value='3';document.querySelector('#priority').dispatchEvent(new Event('input',{bubbles:true}));document.querySelector('#task-tags input').click();document.querySelector('#schedule').click();document.querySelector('#calendar [data-offset=\"1\"]').click();document.querySelector('#date-form').requestSubmit();document.querySelector('#repeat').click();document.querySelector('#repeat-form [name=interval]').value='3';document.querySelector('#repeat-form').requestSubmit();document.querySelector('#edit').requestSubmit()");
+  await until(()=>evaluate("document.querySelector('#tasks').textContent.includes('High') && document.querySelector('#tasks').textContent.includes('Tomorrow') && document.querySelector('#tasks').textContent.includes('#Next') && document.querySelector('#tasks').textContent.includes('Every 3 days')"));
   await call('Emulation.setDeviceMetricsOverride',{width:1440,height:900,deviceScaleFactor:1,mobile:false});
   await capture('desktop.png');
   await call('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
   await capture('mobile-detail.png');
   await evaluate("document.querySelector('#close-detail').click()");
   await capture('mobile-list.png');
+  await evaluate("document.querySelector('.task-check').click()");
+  await until(()=>evaluate("document.querySelectorAll('.task-row').length === 1 && document.querySelector('#tasks').textContent.includes('Every 3 days')"));
   await evaluate('window.__beforeOfflineReload = true');
   await call('Page.reload');
   await until(()=>evaluate("!window.__beforeOfflineReload && document.readyState === 'complete' && document.querySelector('#tasks')?.textContent.includes('Offline smoke task')"));
@@ -90,6 +92,8 @@ try {
   const snapshot = await request({cursor:0,changes:[]}).then(r=>r.json());
   assert.equal(snapshot.records[0].title, 'Offline smoke task');
   assert.equal(snapshot.records[0].priority, 3);
+  assert.equal(snapshot.records.length, 2);
+  assert.equal(snapshot.records.filter(record=>record.done).length, 1);
   assert.equal(snapshot.collections.length, 2);
   const stale = {...snapshot.records[0], title:'Remote change'};
   assert.equal((await request({cursor:snapshot.cursor,changes:[stale]})).status,200);
@@ -104,7 +108,7 @@ try {
   await evaluate("document.querySelector('[data-install]').click()");
   await until(()=>evaluate("document.querySelector('#install-help').open"));
   assert.deepEqual(errors,[]);
-  console.log(`PASS: API, private files, PWA shell, collections, scheduling, offline save/reload, sync conflicts, responsive app, install fallback. Screenshots: ${scratch}`);
+  console.log(`PASS: API, private files, PWA shell, collections, scheduling, deterministic recurrence, offline save/reload, sync conflicts, responsive app, install fallback. Screenshots: ${scratch}`);
 } finally {
   socket?.close(); chrome?.kill(); server.kill();
 }

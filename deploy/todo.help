@@ -11,8 +11,8 @@ todo - personal offline task app
   todo backups     list the retained daily backup files
 
   Tasks, nested subtasks, colored lists, folders, tags, notes, dates,
-  priorities and private sync work on phone and desktop.
-  Habits, scheduled reminders and a full focus workflow are not ready.
+  priorities, recurring tasks and private sync work on phone and desktop.
+  Habits, reminder delivery and a full focus workflow are not ready.
   Use the install button; on iPhone use Safari Share > Add to Home Screen.
 
   Sync credential: /opt/gharawi-todo/.env (TODO_SYNC_TOKEN).

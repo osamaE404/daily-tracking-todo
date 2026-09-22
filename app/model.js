@@ -13,13 +13,37 @@ export function normalize(stored) {
   const state = stored || { cursor: 0, tasks: {}, pending: {}, conflicts: {} };
   state.collections ||= {}; state.pendingCollections ||= {}; state.collectionConflicts ||= {};
   for (const task of Object.values(state.tasks)) {
-    task.list_id ??= null; task.tags ||= []; task.pinned ??= false;
+    task.list_id ??= null; task.tags ||= []; task.pinned ??= false; task.repeat ??= null; task.series_source ??= null;
   }
   return state;
 }
 export function newTask(title, fields = {}) {
   return { id: crypto.randomUUID(), title: title.trim(), notes: '', due: '', priority: 0, parent: null,
-    done: false, deleted: false, revision: 0, list_id: null, tags: [], pinned: false, ...fields };
+    done: false, deleted: false, revision: 0, list_id: null, tags: [], pinned: false, repeat: null, series_source: null, ...fields };
+}
+export function repeatLabel(repeat) {
+  if (!repeat) return 'Does not repeat';
+  const units = { day: 'day', week: 'week', month: 'month', year: 'year' };
+  return repeat.interval === 1 ? `Every ${units[repeat.unit]}` : `Every ${repeat.interval} ${units[repeat.unit]}s`;
+}
+export function nextOccurrence(task) {
+  if (!task.repeat || !task.due) return null;
+  const repeat = task.repeat, date = task.due.slice(0, 10), anchorValue = repeat.anchor || date;
+  const current = new Date(`${date}T12:00`), anchor = new Date(`${anchorValue}T12:00`);
+  if (repeat.unit === 'day') current.setDate(current.getDate() + repeat.interval);
+  else if (repeat.unit === 'week') current.setDate(current.getDate() + 7 * repeat.interval);
+  else if (repeat.unit === 'month') {
+    const target = current.getFullYear() * 12 + current.getMonth() + repeat.interval;
+    const year = Math.floor(target / 12), month = ((target % 12) + 12) % 12;
+    current.setFullYear(year, month, Math.min(anchor.getDate(), new Date(year, month + 1, 0).getDate()));
+  } else {
+    const year = current.getFullYear() + repeat.interval, month = anchor.getMonth();
+    current.setFullYear(year, month, Math.min(anchor.getDate(), new Date(year, month + 1, 0).getDate()));
+  }
+  const nextDate = localDate(current);
+  if (repeat.end && nextDate > repeat.end) return null;
+  const base = task.id.split('@')[0];
+  return { ...structuredClone(task), id: `${base}@${nextDate}`, due: nextDate + task.due.slice(10), done: false, deleted: false, revision: 0, parent: task.parent, series_source: task.id };
 }
 export function matches(task, view, collections, today = new Date()) {
   if (task.deleted) return false;

@@ -38,6 +38,18 @@ struct Task {
     tags: Vec<String>,
     #[serde(default)]
     pinned: bool,
+    #[serde(default)]
+    repeat: Option<Repeat>,
+    #[serde(default)]
+    series_source: Option<String>,
+}
+#[derive(Clone, Serialize, Deserialize, Debug)]
+#[serde(deny_unknown_fields)]
+struct Repeat {
+    unit: String,
+    interval: u16,
+    end: String,
+    anchor: String,
 }
 #[derive(Clone, Serialize, Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
@@ -111,6 +123,17 @@ fn synchronize(db: &mut Connection, input: Sync) -> Result<Synced, Failure> {
                 .is_some_and(|id| id.is_empty() || id.len() > 100)
             || task.tags.len() > 30
             || task.tags.iter().any(|id| id.is_empty() || id.len() > 100)
+            || task
+                .series_source
+                .as_ref()
+                .is_some_and(|id| id.is_empty() || id.len() > 100)
+            || task.repeat.as_ref().is_some_and(|repeat| {
+                !["day", "week", "month", "year"].contains(&repeat.unit.as_str())
+                    || !(1..=365).contains(&repeat.interval)
+                    || !date_or_empty(&repeat.end)
+                    || !date_or_empty(&repeat.anchor)
+                    || task.due.is_empty()
+            })
             || task
                 .parent
                 .as_ref()
@@ -314,6 +337,18 @@ fn synchronize(db: &mut Connection, input: Sync) -> Result<Synced, Failure> {
     })
 }
 
+fn date_or_empty(value: &str) -> bool {
+    value.is_empty()
+        || (value.len() == 10
+            && value.as_bytes().iter().enumerate().all(|(index, byte)| {
+                if index == 4 || index == 7 {
+                    *byte == b'-'
+                } else {
+                    byte.is_ascii_digit()
+                }
+            }))
+}
+
 async fn sync(
     State(app): State<App>,
     headers: HeaderMap,
@@ -425,6 +460,8 @@ mod tests {
             list_id: None,
             tags: Vec::new(),
             pinned: false,
+            repeat: None,
+            series_source: None,
         }
     }
     #[test]
@@ -558,6 +595,28 @@ mod tests {
         assert_eq!(result.collections.len(), 2);
         assert_eq!(result.records[0].list_id.as_deref(), Some("project"));
 
+        let mut invalid_repeat = task();
+        invalid_repeat.id = "invalid-repeat".into();
+        invalid_repeat.due = "2026-09-22".into();
+        invalid_repeat.repeat = Some(Repeat {
+            unit: "day".into(),
+            interval: 0,
+            end: String::new(),
+            anchor: "2026-09-22".into(),
+        });
+        assert!(
+            synchronize(
+                &mut db,
+                Sync {
+                    schema: 2,
+                    cursor: result.cursor,
+                    changes: vec![invalid_repeat],
+                    collections: vec![]
+                }
+            )
+            .is_err()
+        );
+
         let mut invalid = task();
         invalid.id = "bad".into();
         invalid.tags.push("missing".into());
@@ -584,5 +643,7 @@ mod tests {
         assert_eq!(task.list_id, None);
         assert!(task.tags.is_empty());
         assert!(!task.pinned);
+        assert!(task.repeat.is_none());
+        assert!(task.series_source.is_none());
     }
 }
