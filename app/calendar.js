@@ -1,4 +1,4 @@
-import { dayOffset, localDate } from './model.js?v=8';
+import { dayOffset, localDate } from './model.js?v=9';
 
 export function createCalendar(onApply) {
   const dialog = document.querySelector('#calendar');

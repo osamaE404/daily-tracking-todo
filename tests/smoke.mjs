@@ -51,9 +51,10 @@ try {
   };
   await call('Runtime.enable'); await call('Network.enable');
   await until(()=>evaluate("document.querySelector('#status')?.textContent.includes('Ready')"));
-  assert.equal(await evaluate("new URL(document.querySelector('link[rel=stylesheet]').href).search"), '?v=8');
+  assert.equal(await evaluate("new URL(document.querySelector('link[rel=stylesheet]').href).search"), '?v=9');
   assert.equal(await evaluate("getComputedStyle(document.querySelector('.skip')).transform !== 'none'"), true, 'app shell must not render without its current stylesheet');
   await evaluate('navigator.serviceWorker.ready.then(() => true)');
+  await evaluate("caches.open('gharawi-shell-v9').then(cache=>cache.put('/app/',new Response('<title>stale shell</title>',{headers:{'Content-Type':'text/html'}})))");
   await evaluate('window.__beforeSmokeReload = true');
   await call('Page.reload');
   await until(()=>evaluate("!window.__beforeSmokeReload && document.readyState === 'complete' && Boolean(navigator.serviceWorker.controller) && document.querySelector('#status')?.textContent.includes('Ready')"));
@@ -102,6 +103,10 @@ try {
   } catch (error) {
     throw new Error(`${error.message}; status=${await evaluate("document.querySelector('#status').textContent")}; exceptions=${JSON.stringify(errors)}`);
   }
+  assert.equal(await evaluate("localStorage.getItem('todo-sync-token') !== null && sessionStorage.getItem('todo-sync-token') === null"), true);
+  await evaluate("sessionStorage.clear();window.__beforeConnectedReload=true");
+  await call('Page.reload');
+  await until(()=>evaluate("!window.__beforeConnectedReload && document.querySelector('#sync')?.dataset.syncState === 'connected'"));
   const snapshot = await request({cursor:0,changes:[]}).then(r=>r.json());
   assert.equal(snapshot.records[0].title, 'Offline smoke task');
   assert.equal(snapshot.records[0].priority, 3);

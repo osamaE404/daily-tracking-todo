@@ -43,7 +43,7 @@ export TODO_SYNC_TOKEN="$(openssl rand -hex 32)"
 cargo run
 ```
 
-Open `http://localhost:8080`. The landing page has an install button, and `/app/` opens the task app. Inside the app, connect private sync using the token you generated. The token is held in session storage, never in URLs or cached API responses. Tasks remain in IndexedDB after locking sync. Use a trusted browser profile and device lock for local privacy.
+Open `http://localhost:8080`. The landing page has an install button, and `/app/` opens the task app. Inside the app, connect private sync using the token you generated. The token remains in local browser storage until you disconnect; it is never put in URLs or cached API responses. Tasks remain in IndexedDB after disconnecting. Use a trusted browser profile and device lock for local privacy.
 
 The original Bun command previews the landing page only. Rust serves the complete PWA and API from the same origin.
 

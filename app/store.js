@@ -1,11 +1,15 @@
-import { normalize } from './model.js?v=8';
+import { normalize } from './model.js?v=9';
+
+const TOKEN_KEY = 'todo-sync-token';
 
 export async function openStore(onChange, status, connection = () => {}) {
   const request = indexedDB.open('gharawi-todo', 1);
   request.onupgradeneeded = () => request.result.createObjectStore('state');
   const db = await new Promise((resolve, reject) => { request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error); });
   const channel = new BroadcastChannel('gharawi-todo-updates');
-  let token = sessionStorage.getItem('todo-sync-token') || '';
+  let token = localStorage.getItem(TOKEN_KEY) || sessionStorage.getItem(TOKEN_KEY) || '';
+  if (token) localStorage.setItem(TOKEN_KEY, token);
+  sessionStorage.removeItem(TOKEN_KEY);
   let queue = Promise.resolve();
   let state = await read();
   connection(token ? 'syncing' : 'disconnected', token ? 'Checking the server connection…' : 'This device is not connected.', Boolean(token));
@@ -69,8 +73,8 @@ export async function openStore(onChange, status, connection = () => {}) {
   }
   return {
     get state() { return state; }, get hasToken() { return Boolean(token); }, update, synchronize,
-    connect(value) { token = value; sessionStorage.setItem('todo-sync-token', token); connection('syncing', 'Checking the server connection…', true); return synchronize(); },
-    lock() { token = ''; sessionStorage.removeItem('todo-sync-token'); connection('disconnected', 'This device is not connected. Local tasks remain on this device.', false); status('Sync disconnected. Local tasks stay on this device.'); },
+    connect(value) { token = value.trim(); localStorage.setItem(TOKEN_KEY, token); connection('syncing', 'Checking the server connection…', true); return synchronize(); },
+    lock() { token = ''; localStorage.removeItem(TOKEN_KEY); sessionStorage.removeItem(TOKEN_KEY); connection('disconnected', 'This device is not connected. Local tasks remain on this device.', false); status('Sync disconnected. Local tasks stay on this device.'); },
     async resolve(id, collection, useServer) {
       await update(next => {
         const values = collection ? 'collections' : 'tasks', conflicts = collection ? 'collectionConflicts' : 'conflicts', pending = collection ? 'pendingCollections' : 'pending';

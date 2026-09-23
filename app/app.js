@@ -1,7 +1,7 @@
-import { COLORS, PRIORITIES, VIEWS, dayOffset, isOverdue, localDate, matches, newTask, nextOccurrence, repeatLabel, scheduleLabel, taskRows } from './model.js?v=8';
-import { openStore } from './store.js?v=8';
-import { createCalendar } from './calendar.js?v=8';
-import { enableNotifications, reminderLabel, startReminderChecks } from './reminders.js?v=8';
+import { COLORS, PRIORITIES, VIEWS, dayOffset, isOverdue, localDate, matches, newTask, nextOccurrence, repeatLabel, scheduleLabel, taskRows } from './model.js?v=9';
+import { openStore } from './store.js?v=9';
+import { createCalendar } from './calendar.js?v=9';
+import { enableNotifications, reminderLabel, startReminderChecks } from './reminders.js?v=9';
 
 const $ = selector => document.querySelector(selector);
 const status = message => { $('#status').textContent = message; };
