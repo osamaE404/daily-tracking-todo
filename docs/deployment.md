@@ -13,7 +13,7 @@ Copy `target/release/gharawi-todo`, `deploy/Dockerfile`, and `deploy/compose.yam
 
 The included compose file uses the existing external Caddy network, applies a 96 MiB memory ceiling and half a CPU ceiling, drops capabilities, makes the container root filesystem read-only, and publishes no ports. These are limits, not measured consumption. Change the network name if using a different proxy.
 
-Place `deploy/todo.caddy` in the existing proxy's imported configuration directory. Validate the Caddy configuration before reloading. Caddy obtains and renews HTTPS certificates for `todo.gharawi.sa`. Do not restart unrelated services.
+On the Gharawi VPS, install `deploy/todo.caddy` as `/opt/shared-caddy/sites/todo.caddy`. Validate and reload from `/opt/shared-caddy`; Caddy obtains and renews HTTPS certificates for `todo.gharawi.sa`. The gateway is shared infrastructure, while the application, database, backups, and Compose project remain isolated under `/opt/gharawi-todo`. Do not restart unrelated services.
 
 To retrieve the private token on the authorized VPS, inspect `/opt/gharawi-todo/.env` over SSH. Enter its value in the app's Connect private sync dialog. Anyone with the token can read and change the owner's synchronized tasks; rotate it by generating a new `.env` token and recreating only the Todo container. Installed devices then reconnect with the new token.
 
