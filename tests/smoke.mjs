@@ -127,6 +127,7 @@ try {
   }
   await call('Page.navigate',{url:base});
   await until(()=>evaluate("location.pathname === '/' && Boolean(document.querySelector('.hero [data-install]'))"));
+  assert.equal(await evaluate("document.querySelector('#source a[href*=\"github.com/osamaE404/daily-tracking-todo\"]')?.textContent.includes('View the repository')"), true);
   await evaluate("document.querySelector('[data-install]').click()");
   await until(()=>evaluate("document.querySelector('#install-help').open"));
   assert.deepEqual(errors,[]);
